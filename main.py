@@ -154,6 +154,7 @@ def equals():
     # Try make Result
     try:
         if check_safe_for_eval(current):     # Check Unauthorized input
+            # TODO. eval 사용 하고 있으나, 역폴란드 후위표기법 변환 후 연산할 수 있도록 처리할 것.
             result = eval(current)       
             # Float make int ('6.0' -> '6')
             if result == int(result):
