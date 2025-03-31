@@ -164,9 +164,3 @@ def calc(expression: str) -> float:
     return res
 
 
-# s = "-(-17)*(15/-46*-(77))/(64*-((((-68*28))))/65)"
-# s = "+17.0*25.108695652173914/1874.7076923076922"
-s = "-(-28) + (-46 * 58 + (10)) + (-3 / ((((-37 * 42)))) / 23)"
-#! -2626.6065133456436 should be close to -2629.9999160651337 with absolute or relative margin of 1e-06
-res  = calc(s)
-print(res)
