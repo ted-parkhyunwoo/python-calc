@@ -1,4 +1,6 @@
 from tkinter import *
+from calc import calc
+
 
 OPS = ["*", "/", "+", "-"]
 BUTTON_FONT = "Courier", 25, "bold"
@@ -155,7 +157,7 @@ def equals():
     try:
         if check_safe_for_eval(current):     # Check Unauthorized input
             # TODO. eval 사용 하고 있으나, 역폴란드 후위표기법 변환 후 연산할 수 있도록 처리할 것.
-            result = eval(current)       
+            result = calc(current)       
             # Float make int ('6.0' -> '6')
             if result == int(result):
                 result = int(result)
