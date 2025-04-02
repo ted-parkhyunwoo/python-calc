@@ -130,12 +130,46 @@ def parentheses():              # Auto Open/Closing
             display_entry.insert(END, "*(")     # Auto Multiplication insert.
     else:
         display_entry.insert(END, "error")
-        
+
+#! CHECK SYNTEX. Update: 25-04-02
+def check_syntax(formula: str) -> str:
+    # "(*"를 "(1*"로 교체
+    if "(*" in formula:
+        formula = formula.replace("(*", "(1*")
+    
+    # "%" 뒤에 "*"가 오도록 처리
+    if "%" in formula:
+        result = []
+        for i, char in enumerate(formula):
+            result.append(char)
+            if char == "%" and i + 1 < len(formula) and formula[i + 1] not in OPS + [")"]:
+                result.append("*")  # "%" 뒤에 "*" 추가
+        formula = "".join(result)
+    
+    #! 버튼 대신 키보드 입력문제.
+    # 숫자와 괄호 사이에 "*" 추가
+    i = 0
+    while i < len(formula) - 1:
+        # 숫자가 "(" 앞에 오는 경우
+        if formula[i].isdigit() and formula[i + 1] == "(":
+            formula = formula[:i + 1] + "*" + formula[i + 1:]
+            i += 1
+        # ")" 뒤에 숫자가 오는 경우
+        elif formula[i] == ")" and formula[i + 1].isdigit():
+            formula = formula[:i + 1] + "*" + formula[i + 1:]
+            i += 1
+        i += 1
+    
+    return formula
+
 def equals():
     
     del_operator()   # remove incorrect operators before calculation. ('1+3-=' > '1+3=')
     
-    current = display_entry.get()   # Making 'current' variable from display_entry
+    #! DEBUG. The commented-out code is planned for removal. Update: 25-04-02
+    # current = display_entry.get()   # Making 'current' variable from display_entry
+    current = check_syntax(display_entry.get())
+    
     
     if current == "":   # Empty result input
         current = '0'
@@ -156,7 +190,8 @@ def equals():
     # Try make Result
     try:
         if check_safe_for_eval(current):     # Check Unauthorized input
-            # TODO. eval 사용 하고 있으나, 역폴란드 후위표기법 변환 후 연산할 수 있도록 처리할 것.
+            #~ TODO. eval 사용 하고 있으나, 역폴란드 후위표기법 변환 후 연산할 수 있도록 처리할 것.
+            #! eval 대신 calc 모듈을 사용함.
             result = calc(current)       
             # Float make int ('6.0' -> '6')
             if result == int(result):
