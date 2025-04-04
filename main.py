@@ -43,6 +43,24 @@ def del_operator():     # remove the last operator if the last input is an opera
         if current[-1] in OPS:
             last_index = len(current) -1
             display_entry.delete(last_index, END)    
+            
+            
+#! TEST: ERROR MESSAGE CONTROL.  : 25-04-05
+def error_print(msg: str = "ERROR"):
+    def restore_button():  # 버튼 색상 및 상태 복구 함수
+        equals_button.config(bg=COLORS[1], fg=COLORS[3], state=NORMAL)
+        
+    def clear_display():
+        display_entry.delete(0, END)
+        restore_button()      
+    
+    equals_button.config(bg="red", state=DISABLED)  # 버튼을 일시적으로 red로 설정
+    display_entry.delete(0, END)
+    display_entry.insert(0, msg)
+    
+    # 3초 후 색상과 상태를 복원
+    window.after(1500, restore_button)
+    window.after(1500, clear_display) 
                 
                 
 #### Button functions.
@@ -170,7 +188,12 @@ def equals():
     # current = display_entry.get()   # Making 'current' variable from display_entry
     current = check_syntax(display_entry.get())
     
-    
+    #! TEST: input length limit : 25-04-05
+    limit = 30
+    if len(current) > limit:
+        window.after(0, lambda: error_print(f"OUT OF RANGE({len(current)}/{limit})")) 
+        return
+
     if current == "":   # Empty result input
         current = '0'
         
@@ -192,6 +215,7 @@ def equals():
         if check_safe_for_eval(current):     # Check Unauthorized input
             #~ TODO. eval 사용 하고 있으나, 역폴란드 후위표기법 변환 후 연산할 수 있도록 처리할 것.
             #! eval 대신 calc 모듈을 사용함.
+            #! TODO. eval을 calc로 바꾸면서 첨삭할 부분 있는지 체크.(어차피 직접 string을 연산해도 입력자료의 유효성검사는 필요해서 일단 킵.)
             result = calc(current)       
             # Float make int ('6.0' -> '6')
             if result == int(result):
@@ -212,16 +236,9 @@ def equals():
             raise ValueError("Unauthorized input")
     # Exception Handling -> result = 'err'
     except:
-        def clear_display():
-            display_entry.delete(0, END)
-            equals_button.config(bg=COLORS[1], fg=COLORS[3], state=NORMAL)
-        def error_print():
-            display_entry.delete(0, END)
-            display_entry.insert(0, "ERROR")
-            equals_button.config(bg="red", state=DISABLED)
-            window.after(1500, clear_display)   
-        window.after(0, error_print)   
-        result = "err"  
+        window.after(0, lambda: error_print("ERROR"))   
+        return      #! quit equal() instead of make result.
+        # result = "err"  
         
     # Update result on display_entry
     display_entry.delete(0, END)
