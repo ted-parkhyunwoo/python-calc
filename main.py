@@ -6,8 +6,9 @@ BUTTON_FONT = "Courier", 25, "bold"
 DISPLAY_FONT = "Courier", 14, "italic"
 COLORS = ["#2C3333", "#395B64", "#A5C9CA", "#E7F6F2"]   #Color set from https://colorhunt.co/palette/2c3333395b64a5c9cae7f6f2
 ALLOWED_CHARS =list("0123456789./-+*%()")
+INPUT_LIMIT = 30    # user input length limit.
 
-Last_Display = ""                  # 계산 기록 추가용 임시 변수, 주석추가:25-04-19
+Last_Display = ""                  # 계산 기록 추가용 임시 변수, equals() 함수 정상작동시 recent_label_1,2 등으로 업데이트됨.
 Prepare_for_New_input = False      # this trigger will turn on True after calc. (for clear display if you click number.)
 
 #### Inheritance functions
@@ -36,7 +37,6 @@ def update_input_ready_status(func=False):     #first_input trigger switching me
     else:
         Prepare_for_New_input = False 
         
-#! UPDATE: del_operator() 함수 이름을 pop_last_ops() 로 바꿔서 더욱 직관적인 이름을 갖게함. (25-04-19)      
 def pop_last_ops() -> None:     # remove the last operator if the last input is an operator. - Used as an inheritance function.
     current = display_entry.get()
     if len(current) > 0:
@@ -44,9 +44,56 @@ def pop_last_ops() -> None:     # remove the last operator if the last input is 
             last_index = len(current) -1
             display_entry.delete(last_index, END)    
             
-            
-#! TEST: ERROR MESSAGE CONTROL.  : 25-04-05     -> equlas button RED 3seconds.
-def error_print(msg: str = "ERROR"):
+def invalid_formula_length(formula:str) -> bool:        # Check if the formula exceeds the allowed length limit
+    if len(formula) > INPUT_LIMIT: return True
+    return False
+
+
+#! pop_last_ops() 부분 내부구현 고려.-> 진행중.
+#! TODO: 05 + 2 등 입력시 5 + 2 등으로 수정하는 기능 필요 (calc.py 단에서 수정해야할지 의문.)
+def adjust_formula(formula: str) -> str:                # Fix formula. 여러 입력오류들을 보정.
+
+    # replace "(*" to "(1*"
+    if "(*" in formula:
+        formula = formula.replace("(*", "(1*")
+    
+    # Ensure "*" is automatically inserted after "%" when necessary
+    if "%" in formula:
+        result = []
+        for i, char in enumerate(formula):
+            result.append(char)
+            if char == "%" and i + 1 < len(formula) and formula[i + 1] not in OPS + [")"]:
+                result.append("*")  # "%" 뒤에 "*" 추가
+        formula = "".join(result)
+    
+    # Add "*" for implicit multiplication (keyboard input only) (e.g: 3(2+1) -> 3*(2+1),  (3+2)4 -> (3+2)*4)
+    i = 0
+    while i < len(formula) - 1:
+        # Insert "*" before "(" if preceded by a number
+        if formula[i].isdigit() and formula[i + 1] == "(":
+            formula = formula[:i + 1] + "*" + formula[i + 1:]
+            i += 1
+        # Insert "*" after ")" if followed by a number
+        elif formula[i] == ")" and formula[i + 1].isdigit():
+            formula = formula[:i + 1] + "*" + formula[i + 1:]
+            i += 1
+        i += 1
+    i = 0       # Reset index for reprocessing after modifications
+    
+    # Automatically close any unclosed parentheses in the formula
+    openedParentheses = formula.count("(")
+    closedParentheses = formula.count(")")
+    if openedParentheses > closedParentheses:
+        for _ in range(openedParentheses-closedParentheses):
+            formula += ")"    
+
+    # If the formula is empty, set the result to '0' by default
+    if formula == "":
+        formula = '0'
+
+    return formula
+
+def error_print(msg: str = "ERROR"):            # 엔트리에는 msg 출력, =버튼 RED컬러 후 비활성화(3초간)
     def restore_button():  # 버튼 색상 및 상태 복구 함수
         equals_button.config(bg=COLORS[1], fg=COLORS[3], state=NORMAL)
         
@@ -54,7 +101,7 @@ def error_print(msg: str = "ERROR"):
         display_entry.delete(0, END)
         restore_button()      
     
-    equals_button.config(bg="red", state=DISABLED)  # 버튼을 일시적으로 red로 설정
+    equals_button.config(bg="red", state=DISABLED)
     display_entry.delete(0, END)
     display_entry.insert(0, msg)
     
@@ -65,7 +112,7 @@ def error_print(msg: str = "ERROR"):
                 
 #### Button functions.
 
-# Number (0~9) and Operators (*, /, +, -, %)  
+## Number (0~9) and Operators (*, /, +, -, %)  
 def insert_multiplication():   # Auto insert "*" after ")" - Used as an inheritance function
     current = display_entry.get()
     if current != "":
@@ -74,7 +121,7 @@ def insert_multiplication():   # Auto insert "*" after ")" - Used as an inherita
             
 def number_input(num):
     insert_multiplication() 
-    if Prepare_for_New_input == True:
+    if Prepare_for_New_input:
         display_entry.delete(0, END)      
     update_input_ready_status()    #Trigger make False.
     display_entry.insert(END, num)
@@ -85,22 +132,22 @@ def operator_button(operator):
     display_entry.insert(END, operator)
     
     
-# Function keys
-
+## Function keys    (., C, +=, (), =)
 def point():
     update_input_ready_status()
     display_entry.insert(END, ".")
 def clear():
     update_input_ready_status()
     display_entry.delete(0, END)
-    
-    
+
 # signchange() function turns the input into negative or positive based on various conditions. 
 # The content isn't really important. I just kept debugging until it worked as wished.    
 def signchange():
     update_input_ready_status()
     current = display_entry.get()
+    if current == "" or current == '0': return      #! DEBUG: clicked with empty or 0   (25-04-20)
     last_index = find_last_ops_index(current)    
+    
     if len(current) > 0 and len(current)-1 != last_index and last_index > 0:      
         if last_index > 0:
             if current[last_index] == "*":
@@ -127,8 +174,9 @@ def signchange():
             display_entry.insert(0, "-")
         elif current[0] == "-":
             display_entry.delete(0)      
-            
-def parentheses():              # Auto Open/Closing
+
+# Auto Open/Closing: Algorithm for deciding whether to open or close parentheses when "pressing the corresponding button"            
+def parentheses():
     update_input_ready_status()
     current = display_entry.get()
     left = current.count("(")
@@ -149,70 +197,22 @@ def parentheses():              # Auto Open/Closing
     else:
         display_entry.insert(END, "error")
 
-#! CHECK PARENTHESES SYNTEX. Update: 25-04-02
-def check_syntax(formula: str) -> str:
-    '''
-    TODO 잘못 입력된 문법을 올바른 문법으로 고쳐주는 함수임. 함수이름 변경 고려 fix_syntax 등.
-    del_operator()-변경전 즉 pop_last_ops() 함수를 여기에 내부구현 고려.
-    '''
-    # replace "(*" to "(1*"
-    if "(*" in formula:
-        formula = formula.replace("(*", "(1*")
+#! TODO : equals() 함수 내부가 너무 복잡함. 문법체크, 계산식 허용 길이체크, 예외처리, 계산기록업데이트 4파트로 리펙토링 할것 - 진행중
+def equals():       # Button Function.
     
-    # "%" 뒤에 "*"가 오도록 처리
-    if "%" in formula:
-        result = []
-        for i, char in enumerate(formula):
-            result.append(char)
-            if char == "%" and i + 1 < len(formula) and formula[i + 1] not in OPS + [")"]:
-                result.append("*")  # "%" 뒤에 "*" 추가
-        formula = "".join(result)
-    
-    #! 버튼 대신 키보드 입력문제.
-    # 숫자와 괄호 사이에 "*" 추가
-    i = 0
-    while i < len(formula) - 1:
-        # 숫자가 "(" 앞에 오는 경우
-        if formula[i].isdigit() and formula[i + 1] == "(":
-            formula = formula[:i + 1] + "*" + formula[i + 1:]
-            i += 1
-        # ")" 뒤에 숫자가 오는 경우
-        elif formula[i] == ")" and formula[i + 1].isdigit():
-            formula = formula[:i + 1] + "*" + formula[i + 1:]
-            i += 1
-        i += 1
-    
-    return formula
-
-
-#! TODO : equals() 함수 내부가 너무 복잡함. 문법체크, 계산식 허용 길이체크, 예외처리, 계산기록업데이트 4파트로 리펙토링 할것.
-def equals():
-    
-    # TODO: pop_last_ops() 함수를 check_syntax() 내부구현 가능한지 검토 - pop_last_ops() 는 void형식 함수임. 
+    #! TODO: adjust_formula() 에 내부구현 가능한지 리펙토링 검토.  : 현재 pop_last_ops()는 다른데서도 쓰이니 신중히 검토.
     pop_last_ops()   # remove incorrect operators before calculation. ('1+3-=' > '1+3=')
-    
-    #! DEBUG. The commented-out code is planned for removal. Update: 25-04-02
-    # current = display_entry.get()   # Making 'current' variable from display_entry
-    current = check_syntax(display_entry.get())
-    
-    #! TEST: input length limit : 25-04-05
-    limit = 30
-    if len(current) > limit:
-        window.after(0, lambda: error_print(f"OUT OF RANGE({len(current)}/{limit})")) 
-        return
-
-    if current == "":   # Empty result input -> '0'
-        current = '0'
         
-    # Auto parenthesis closing
-    left = current.count("(")
-    right = current.count(")")
-    if left > right:
-        for _ in range(left-right):
-            current += ")"
-
-    #! TODO: check_syntax() 에 내부구현 가능한지 리펙토링 검토.
+    current:str = adjust_formula(display_entry.get())       # 계산식 여러 오류 검토/보정
+    
+    # check formula is valid length
+    if invalid_formula_length(current):        
+        window.after(0, lambda: error_print(f"OUT OF RANGE({len(current)}/{INPUT_LIMIT})"))
+        return
+              
+    #! TODO: adjust_formula() 에 내부구현 가능한지 리펙토링 검토. : 어려운부분: 히스토리에는 last_questestion 사용, 내부적으로는 current사용.
     # Replace "/ 100" instead of "%"
+    #!  /100 으로 유지하고 last_questestion 을 사용하지 않는방향이면 쉽게 가능. (아래 recent result 업데이트도 리팩토링 해야함.)
     last_questestion = current  # maintain "%" on recent label
     if "%" in current:
         for _ in range(current.count("%")):
@@ -221,10 +221,12 @@ def equals():
     # Try make Result
     try:
         if check_safe_for_eval(current):     # Check Unauthorized input
-            #~ TODO. eval 사용 하고 있으나, 역폴란드 후위표기법 변환 후 연산할 수 있도록 처리할 것.
             #! eval 대신 calc 모듈을 사용함.
             #! TODO. eval을 calc로 바꾸면서 첨삭할 부분 있는지 체크.(어차피 직접 string을 연산해도 입력자료의 유효성검사는 필요해서 일단 킵.)
-            result = calc(current)       
+            result:float = calc(current)     
+            
+            #########! 이후 try문 아래까진 다 정밀도 조정
+            #! TODO. 정밀도보정 함수화 필요.
             # Float make int ('6.0' -> '6')
             if result == int(result):
                 result = int(result)
