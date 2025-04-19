@@ -1,14 +1,13 @@
 from tkinter import *
 from calc import calc
 
-
 OPS = ["*", "/", "+", "-"]
 BUTTON_FONT = "Courier", 25, "bold"
 DISPLAY_FONT = "Courier", 14, "italic"
 COLORS = ["#2C3333", "#395B64", "#A5C9CA", "#E7F6F2"]   #Color set from https://colorhunt.co/palette/2c3333395b64a5c9cae7f6f2
 ALLOWED_CHARS =list("0123456789./-+*%()")
 
-Last_Display = ""
+Last_Display = ""                  # 계산 기록 추가용 임시 변수, 주석추가:25-04-19
 Prepare_for_New_input = False      # this trigger will turn on True after calc. (for clear display if you click number.)
 
 #### Inheritance functions
@@ -37,7 +36,8 @@ def update_input_ready_status(func=False):     #first_input trigger switching me
     else:
         Prepare_for_New_input = False 
         
-def del_operator():     # remove the last operator if the last input is an operator. - Used as an inheritance function.
+#! UPDATE: del_operator() 함수 이름을 pop_last_ops() 로 바꿔서 더욱 직관적인 이름을 갖게함. (25-04-19)      
+def pop_last_ops() -> None:     # remove the last operator if the last input is an operator. - Used as an inheritance function.
     current = display_entry.get()
     if len(current) > 0:
         if current[-1] in OPS:
@@ -45,7 +45,7 @@ def del_operator():     # remove the last operator if the last input is an opera
             display_entry.delete(last_index, END)    
             
             
-#! TEST: ERROR MESSAGE CONTROL.  : 25-04-05
+#! TEST: ERROR MESSAGE CONTROL.  : 25-04-05     -> equlas button RED 3seconds.
 def error_print(msg: str = "ERROR"):
     def restore_button():  # 버튼 색상 및 상태 복구 함수
         equals_button.config(bg=COLORS[1], fg=COLORS[3], state=NORMAL)
@@ -80,7 +80,7 @@ def number_input(num):
     display_entry.insert(END, num)
     
 def operator_button(operator):
-    del_operator()
+    pop_last_ops()
     update_input_ready_status()
     display_entry.insert(END, operator)
     
@@ -149,9 +149,13 @@ def parentheses():              # Auto Open/Closing
     else:
         display_entry.insert(END, "error")
 
-#! CHECK SYNTEX. Update: 25-04-02
+#! CHECK PARENTHESES SYNTEX. Update: 25-04-02
 def check_syntax(formula: str) -> str:
-    # "(*"를 "(1*"로 교체
+    '''
+    TODO 잘못 입력된 문법을 올바른 문법으로 고쳐주는 함수임. 함수이름 변경 고려 fix_syntax 등.
+    del_operator()-변경전 즉 pop_last_ops() 함수를 여기에 내부구현 고려.
+    '''
+    # replace "(*" to "(1*"
     if "(*" in formula:
         formula = formula.replace("(*", "(1*")
     
@@ -180,9 +184,12 @@ def check_syntax(formula: str) -> str:
     
     return formula
 
+
+#! TODO : equals() 함수 내부가 너무 복잡함. 문법체크, 계산식 허용 길이체크, 예외처리, 계산기록업데이트 4파트로 리펙토링 할것.
 def equals():
     
-    del_operator()   # remove incorrect operators before calculation. ('1+3-=' > '1+3=')
+    # TODO: pop_last_ops() 함수를 check_syntax() 내부구현 가능한지 검토 - pop_last_ops() 는 void형식 함수임. 
+    pop_last_ops()   # remove incorrect operators before calculation. ('1+3-=' > '1+3=')
     
     #! DEBUG. The commented-out code is planned for removal. Update: 25-04-02
     # current = display_entry.get()   # Making 'current' variable from display_entry
@@ -194,7 +201,7 @@ def equals():
         window.after(0, lambda: error_print(f"OUT OF RANGE({len(current)}/{limit})")) 
         return
 
-    if current == "":   # Empty result input
+    if current == "":   # Empty result input -> '0'
         current = '0'
         
     # Auto parenthesis closing
@@ -204,6 +211,7 @@ def equals():
         for _ in range(left-right):
             current += ")"
 
+    #! TODO: check_syntax() 에 내부구현 가능한지 리펙토링 검토.
     # Replace "/ 100" instead of "%"
     last_questestion = current  # maintain "%" on recent label
     if "%" in current:
@@ -234,6 +242,7 @@ def equals():
             update_input_ready_status(True) # This trigger will clear display if you click number after calc.
         else:
             raise ValueError("Unauthorized input")
+        
     # Exception Handling -> result = 'err'
     except:
         window.after(0, lambda: error_print("ERROR"))   
