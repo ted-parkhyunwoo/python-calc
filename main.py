@@ -8,8 +8,9 @@ COLORS = ["#2C3333", "#395B64", "#A5C9CA", "#E7F6F2"]   #Color set from https://
 ALLOWED_CHARS =list("0123456789./-+*%()")
 INPUT_LIMIT = 30    # user input length limit.
 
-Last_Display = ""                  # 계산 기록 추가용 임시 변수, equals() 함수 정상작동시 recent_label_1,2 등으로 업데이트됨.
+Last_Display = ""                  # 계산 기록 추가용 임시 변수: global로 업데이트됨.
 Prepare_for_New_input = False      # this trigger will turn on True after calc. (for clear display if you click number.)
+
 
 #### Inheritance functions
 
@@ -50,10 +51,9 @@ def invalid_formula_length(formula:str) -> bool:        # Check if the formula e
 
 
 #! pop_last_ops() 부분 내부구현 고려.-> 진행중.
-#! adjust_formula 기능이 더 첨가될 것을 고려하여 모듈화 고민.
+#! adjust_formula 기능이 더 첨가될 것을 고려하여 모듈화 고민(각기능 함수화).
 #! TODO: 05 + 2 등 입력시 5 + 2 등으로 수정하는 기능 필요 (calc.py 단에서 수정해야할지, 숫자버튼에서 비어있는 상태 혹은 연산자 뒤 0이 선입력인지 고려할 것. 예: 비어있는상태 or 연산자, 괄호 뒤 등에 0 입력후 다른숫자 입력시: 05-> 5로 변경 필요)
 def adjust_formula(formula: str) -> str:                # Fix formula. 여러 입력오류들을 보정.
-
     # replace "(*" to "(1*"
     if "(*" in formula:
         formula = formula.replace("(*", "(1*")
@@ -89,26 +89,38 @@ def adjust_formula(formula: str) -> str:                # Fix formula. 여러 �
             formula += ")"    
 
     # If the formula is empty, set the result to '0' by default
-    if formula == "":
-        formula = '0'
+    if formula == "": formula = '0'
 
     return formula
 
-def error_print(msg: str = "ERROR"):            # 엔트리에는 msg 출력, =버튼 RED컬러 후 비활성화(3초간)
-    def restore_button():  # 버튼 색상 및 상태 복구 함수
+#! TODO: error_print 조정중: 25-04-20
+def error_print(msg: str = "ERROR"):
+    """엔트리에 msg를 출력하고, 버튼을 비활성화 후 3초 후 복원"""
+    
+    def disable_button():
+        equals_button.config(bg="red", state=DISABLED)
+    
+    def restore_button():
         equals_button.config(bg=COLORS[1], fg=COLORS[3], state=NORMAL)
-        
+    
     def clear_display():
         display_entry.delete(0, END)
-        restore_button()      
     
-    equals_button.config(bg="red", state=DISABLED)
-    display_entry.delete(0, END)
+    disable_button()
+    clear_display()
     display_entry.insert(0, msg)
     
-    # 3초 후 색상과 상태를 복원
-    window.after(1500, restore_button)
-    window.after(1500, clear_display) 
+    # 3초 후 restore_button과 clear_display를 동시에 실행
+    window.after(3000, lambda: (restore_button(), clear_display()))
+
+#! TEST: 정밀도 보정함수추가 : 25-04-20
+def adjust_precision(result: float) -> float:    
+    if result == int(result): result = int(result)      # 정수로 변환 가능한 경우 정수로 변환
+    else: result = round(result, 13)                    # 소수점 이하 13자리까지 반올림
+
+    if abs(result - int(round(result))) < 0.000_000_000_001:    
+        result = int(round(result))                 # 매우 작은 오차 보정 (결과값이 정수에 가까운 경우 정수로 변환)
+    return result                
                 
                 
 #### Button functions.
@@ -198,7 +210,7 @@ def parentheses():
     else:
         display_entry.insert(END, "error")
 
-#! TODO : equals() 함수 내부가 너무 복잡함. 문법체크, 계산식 허용 길이체크, 예외처리, 계산기록업데이트 4파트로 리펙토링 할것 - 진행중
+#! TODO : equals() 함수내부 복잡도때문에 함수화 리팩토링 진행중
 def equals():       # Button Function.
     
     #! TODO: adjust_formula() 에 내부구현 가능한지 리펙토링 검토.  : 현재 pop_last_ops()는 다른데서도 쓰이니 신중히 검토.
@@ -221,28 +233,10 @@ def equals():       # Button Function.
             
     # Try make Result
     try:
-        if check_safe_for_eval(current):     # Check Unauthorized input
-            #! eval 대신 calc 모듈을 사용함.
-            #! TODO. eval을 calc로 바꾸면서 첨삭할 부분 있는지 체크.(어차피 직접 string을 연산해도 입력자료의 유효성검사는 필요해서 일단 킵.)
-            result:float = calc(current)     
-            
-            #########! 이후 try문 아래까진 다 정밀도 조정
-            #! TODO. 정밀도보정 함수화 필요.
-            # Float make int ('6.0' -> '6')
-            if result == int(result):
-                result = int(result)
-                
-            # Rounding and adjusting the operation result
-            result = round(result, 13) 
-            #### IMPORTANT!
-            # Without using round,' 1.2 * 3 = 3.6' would not be accurate but rather '3.59999999...' on python.
-            # Using round, multiplying the result of '6/11' by '11' again does not give '6' but outputs '6.000000000005' instead.
-            
-            # When the error of the result is less than '.000000000001', adjust by truncating.
-            if abs(result - int(round(result))) < 0.000_000_000_001:
-                result = int(round(result))
-            
-            update_input_ready_status(True) # This trigger will clear display if you click number after calc.
+        if check_safe_for_eval(current):  #! 원래 eval검사용이었으나, calc로 바뀌고 현재 식에 사용된 문자 유효성 검사로 사용중.
+            result: float = calc(current)  # eval에서 calc모듈(직접작성) 으로 변경됨.
+            result: float = adjust_precision(result)   # 정밀도 보정 함수 적용 (25-04-20)
+            update_input_ready_status(True)  # This trigger will clear display if you click number after calc.
         else:
             raise ValueError("Unauthorized input")
         
@@ -256,6 +250,8 @@ def equals():       # Button Function.
     display_entry.delete(0, END)
     display_entry.insert(0, str(result))
     
+    
+    #! TODO: 최근검사식 업데이트 함수화 고려.
     # Recent result labels Update (except input just "=")
     global Last_Display 
     if "=" in str(Last_Display):    # if Last_Display has result without fomula.
