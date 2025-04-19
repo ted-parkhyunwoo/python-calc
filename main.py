@@ -50,7 +50,8 @@ def invalid_formula_length(formula:str) -> bool:        # Check if the formula e
 
 
 #! pop_last_ops() 부분 내부구현 고려.-> 진행중.
-#! TODO: 05 + 2 등 입력시 5 + 2 등으로 수정하는 기능 필요 (calc.py 단에서 수정해야할지 의문.)
+#! adjust_formula 기능이 더 첨가될 것을 고려하여 모듈화 고민.
+#! TODO: 05 + 2 등 입력시 5 + 2 등으로 수정하는 기능 필요 (calc.py 단에서 수정해야할지, 숫자버튼에서 비어있는 상태 혹은 연산자 뒤 0이 선입력인지 고려할 것. 예: 비어있는상태 or 연산자, 괄호 뒤 등에 0 입력후 다른숫자 입력시: 05-> 5로 변경 필요)
 def adjust_formula(formula: str) -> str:                # Fix formula. 여러 입력오류들을 보정.
 
     # replace "(*" to "(1*"
