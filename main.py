@@ -14,13 +14,13 @@ Prepare_for_New_input = False      # this trigger will turn on True after calc. 
 
 #### Inheritance functions ####
 
-def check_safe_for_eval(user_input):        # Check unauthorized input because this code use eval(this is dangerous) function.
+def allowed_keys_input(user_input:str) -> bool:        # Check unauthorized keyboard custom input
     for char in user_input:
         if char not in ALLOWED_CHARS:
             return False 
     return True
 
-def find_last_ops_index(user_input):        # Used as an inheritance function
+def find_last_ops_index(user_input:str) -> int:        # Used as an inheritance function
     last_ops_index = 0
     chars = list("/-+*&()")
     replace = list(user_input)
@@ -31,7 +31,7 @@ def find_last_ops_index(user_input):        # Used as an inheritance function
                 replace[replace.index(c)] = "removed"
     return last_ops_index
 
-def update_input_ready_status(func=False):  # first_input trigger switching method. 
+def update_input_ready_status(func=False) -> None:  # first_input trigger switching method. 
     global Prepare_for_New_input   
     if func == True:
         Prepare_for_New_input = True
@@ -67,7 +67,7 @@ def adjust_precision(result: float) -> float:           # 정밀도 보정함수
         result = int(round(result))                 # 매우 작은 오차 보정 (결과값이 정수에 가까운 경우 정수로 변환)
     return result                
                 
-def update_recent_labels(formula:str, result:str):      # Update recent labels and Update display_entry(except input just "=") : 25-04-21
+def update_recent_labels(formula:str, result:str) -> None:      # Update recent labels and Update display_entry(except input just "=") : 25-04-21
     display_entry.delete(0, END)
     display_entry.insert(0, str(result))
     
@@ -117,6 +117,7 @@ def operator_button(operator):
 def point():    # '.' Button
     update_input_ready_status()
     display_entry.insert(END, ".")
+    
 def clear():    # 'C' Button
     update_input_ready_status()
     display_entry.delete(0, END)
@@ -180,30 +181,28 @@ def parentheses():      # '( )' Bottn.
 
 def equals():       # '=' Button.
 
-    # init user_formula and user_formula result.    
+    # make and init user_formula and user_formula result.    
     #! TODO : str 리턴식으로 바꿀 것을 검토. : equals()함수에도 쓰이지만, operator_button() 에서도 쓰여서 아래 AdjustFormula모듈 첨가에 어려움을 겪는중.
     pop_last_invalid_ops()   # remove incorrect operators before calculation. ('1+3-=' > '1+3=')
     user_formula:str = AdjustFormula(display_entry.get()).get_standard_fix()        # adjust_formula class화 (다양한 수식 오류 보정) 25-04-21
     user_formula_result:float = 0.0                                                 # init user_formula_result.
             
     # Error handling:
-    if invalid_formula_length(user_formula):            # 수식길이제한 예외처리: check formula is valid length
-        window.after(0, lambda: error_display(errmsg= f"OUT OF RANGE({len(user_formula)}/{INPUT_LIMIT})"))
-        return
-
-    #! IMPORTANT TODO: 잘못된 에러처리 검토. 잘못된 입력은 check_safe_for_eval에서 실패해야되는데 왜 except로 넘어가는지 모르겠음
     try:
-        if check_safe_for_eval(user_formula):  #! 원래 eval검사용이었으나, calc로 바뀌고 현재 식에 사용된 문자 유효성 검사로 사용중.
-            user_formula_result = calc(user_formula)  # eval에서 calc모듈(직접작성) 으로 변경됨.
-            user_formula_result = adjust_precision(user_formula_result)   # 정밀도 보정 함수 적용 (25-04-20)
-            update_input_ready_status(True)  # This trigger will clear display if you click number after calc.
-        else:
-            raise ValueError("Unauthorized input")      #! TODO: raise 대신 except처럼 사용 고려.
-    except:
-        print(f"DEBUG: user_formula = {user_formula}, user_formula_result = {user_formula_result}")       #! TEST디버그출력
-        window.after(0, lambda: error_display(errmsg= "ERROR"))
+        if not allowed_keys_input(user_formula): raise ValueError("Unauthorized input")
+        if invalid_formula_length(user_formula): raise ValueError("Out of range") 
+        
+    except ValueError as e:
+        err:str = str(e)
+        # print(f"DEBUG: user_formula = {user_formula}, user_formula_result = {user_formula_result}")       #! TEST디버그출력
+        if err == "Unauthorized input": window.after(0, lambda: error_display(errmsg= "Unauthorized input"))
+        if err == "Out of range": window.after(0, lambda: error_display(errmsg= f"OUT OF RANGE({len(user_formula)}/{INPUT_LIMIT})"))
         return
     
+    # calculating and fix precision.
+    user_formula_result = adjust_precision(calc(user_formula))     # 정밀도 보정 함수 적용 (25-04-20)
+    update_input_ready_status(True)             # This trigger will clear display if you click number after calc.
+
     # UI update recent_label 1, 2 and update display_entry
     update_recent_labels(formula=user_formula, result= user_formula_result)     
             
