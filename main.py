@@ -61,7 +61,7 @@ def error_print(msg: str = "ERROR") -> None:    # Display a message in the entry
     
     window.after(3000, lambda: (restore_button(), clear_display())) # windows에 전달할 함수가 복수라면 램다를 사용
 
-#! TEST: 정밀도 보정함수추가 : 25-04-20
+# 정밀도 보정함수 : 25-04-20
 def adjust_precision(result: float) -> float:    
     if result == int(result): result = int(result)      # 정수로 변환 가능한 경우 정수로 변환
     else: result = round(result, 13)                    # 소수점 이하 13자리까지 반올림
@@ -161,21 +161,18 @@ def parentheses():      # '( )' Bottn.
 #! TODO : equals() 함수내부 복잡도때문에 함수화 리팩토링 진행중
 def equals():       # '=' Button.
     
-    #! TODO : str 리턴식으로 바꿀 것을 검토.
+    #! TODO : str 리턴식으로 바꿀 것을 검토. : equals()함수에도 쓰이지만, operator_button() 에서도 쓰여서 아래 AdjustFormula모듈 첨가에 어려움을 겪는중.
     pop_last_invalid_ops()   # remove incorrect operators before calculation. ('1+3-=' > '1+3=')
-        
-    #! TEST: adjust_formula class화 (다양한 수식 오류 보정)
-    user_formula:str = AdjustFormula(display_entry.get()).get_standard_fix()
+    user_formula:str = AdjustFormula(display_entry.get()).get_standard_fix()        # adjust_formula class화 (다양한 수식 오류 보정) 25-04-21
     
-    # 예외처리: check formula is valid length
-    if invalid_formula_length(user_formula):        
+    if invalid_formula_length(user_formula):            # 수식길이제한 예외처리: check formula is valid length
         window.after(0, lambda: error_print(f"OUT OF RANGE({len(user_formula)}/{INPUT_LIMIT})"))
         return
                   
     # Try make Result
     user_formula_result:float = 0.0            # init user_formula_result.
     
-    #! IMPORTANT TODO: 에러처리 검토. 잘못된 입력은 check_safe_for_eval에서 실패해야되는데 왜 except로 넘어가는지 모르겠음
+    #! IMPORTANT TODO: 잘못된 에러처리 검토. 잘못된 입력은 check_safe_for_eval에서 실패해야되는데 왜 except로 넘어가는지 모르겠음
     try:
         if check_safe_for_eval(user_formula):  #! 원래 eval검사용이었으나, calc로 바뀌고 현재 식에 사용된 문자 유효성 검사로 사용중.
             user_formula_result = calc(user_formula)  # eval에서 calc모듈(직접작성) 으로 변경됨.
@@ -186,7 +183,7 @@ def equals():       # '=' Button.
         
     # Exception Handling -> quit equals.
     except:
-        print(f"DEBUG: user_formula = {user_formula}, user_formula_result = {user_formula_result}")       #! 디버그출력
+        print(f"DEBUG: user_formula = {user_formula}, user_formula_result = {user_formula_result}")       #! TEST디버그출력
         window.after(0, lambda: error_print("ERROR"))
         return
         
