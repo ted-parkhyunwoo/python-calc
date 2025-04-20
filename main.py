@@ -2,6 +2,7 @@ from tkinter import *
 from calc import calc
 from adjust_formula import AdjustFormula
 
+# Constant
 OPS = ["*", "/", "+", "-"]
 BUTTON_FONT = "Courier", 25, "bold"
 DISPLAY_FONT = "Courier", 14, "italic"
@@ -9,8 +10,9 @@ COLORS = ["#2C3333", "#395B64", "#A5C9CA", "#E7F6F2"]   #Color set from https://
 ALLOWED_CHARS =list("0123456789./-+*%()")
 INPUT_LIMIT = 30    # user input length limit.
 
-Last_Display = ""                  # 최근 계산기록 메모리 전역변수: update_recent_labels() 에서 global로 업데이트됨.
-Prepare_for_New_input = False      # this trigger will turn on True after calc. (for clear display if you click number.): 결과출력후 수식입력시 디스플레이 삭제용 트리거
+# Global variable
+Last_Display = ""                  # last history result memory: update_recent_labels() 에서 global로 업데이트됨.
+Prepare_for_New_input = False      # check ready for input trigger: turn on True after equals(). (for clear display if you click number. 결과출력후 새 수식입력시 디스플레이 업데이트용 트리거)
 
 #### Inheritance functions ####
 
@@ -31,7 +33,7 @@ def find_last_ops_index(user_input:str) -> int:        # Used as an inheritance 
                 replace[replace.index(c)] = "removed"
     return last_ops_index
 
-def update_input_ready_status(func=False) -> None:  # first_input trigger switching method. 
+def update_input_ready_status(func=False) -> None:      # first_input trigger switching method. 
     global Prepare_for_New_input   
     if func == True:
         Prepare_for_New_input = True
@@ -57,7 +59,7 @@ def error_display(errmsg: str = "ERROR") -> None:    # Display a message in the 
     disable_button()
     clear_display()
     display_entry.insert(0, errmsg)
-    window.after(3000, lambda: (restore_button(), clear_display())) # windows에 전달할 함수가 복수라면 램다를 사용
+    window.after(3000, lambda: (restore_button(), clear_display())) # tip: windows에 전달할 함수가 복수라면 램다를 사용
 
 def adjust_precision(result: float) -> float:           # 정밀도 보정함수 : 25-04-20
     if result == int(result): result = int(result)      # 정수로 변환 가능한 경우 정수로 변환
@@ -72,18 +74,16 @@ def update_recent_labels(formula:str, result:str) -> None:      # Update recent 
     display_entry.insert(0, str(result))
     
     global Last_Display 
-    if "=" in str(Last_Display):    # if Last_Display has result without fomula.
-        Last_Display_result = Last_Display.split('=')[-1]
-    else:
-        Last_Display_result = Last_Display  
+    # Extract the last result from Last_Display.
+    if "=" in str(Last_Display): Last_Display_result = Last_Display.split('=')[-1]       
+    else: Last_Display_result = Last_Display  
         
-    Old_Display = Last_Display
+    Old_Display:str = Last_Display
     Last_Display = (f"{formula}={result:,}")  #for update recent label.
         
-    if len(Last_Display) >= 40:
-        Last_Display = f"{result:,}"   #Last_Display is just result if that is longer than 27 chars
+    if len(Last_Display) >= 40: Last_Display = f"{result:,}"    # Last_Display is just result if that is longer than 40 chars
         
-    if Last_Display_result != formula:  
+    if Last_Display_result != formula:
         if recent_label_1["text"] == "":
             recent_label_1.config(text=Last_Display)
         else:
@@ -180,12 +180,11 @@ def parentheses():      # '( )' Bottn.
         display_entry.insert(END, "error")
 
 def equals():       # '=' Button.
-
-    # make and init user_formula and user_formula result.    
-    #! TODO : str 리턴식으로 바꿀 것을 검토. : equals()함수에도 쓰이지만, operator_button() 에서도 쓰여서 아래 AdjustFormula모듈 첨가에 어려움을 겪는중.
     pop_last_invalid_ops()   # remove incorrect operators before calculation. ('1+3-=' > '1+3=')
+    
+    # make and init user_formula and user_formula result.    
     user_formula:str = AdjustFormula(display_entry.get()).get_standard_fix()        # adjust_formula class화 (다양한 수식 오류 보정) 25-04-21
-    user_formula_result:float = 0.0                                                 # init user_formula_result.
+    user_formula_result:float = 0.0
             
     # Error handling:
     try:
