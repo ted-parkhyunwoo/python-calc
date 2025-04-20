@@ -2,7 +2,6 @@ OPS = ["*", "/", "+", "-"]
 
 #! TODO: 05 + 2 등 입력시 5 + 2 등으로 수정하는 기능 필요 (calc.py 단에서 수정해야할지, 숫자버튼에서 비어있는 상태 혹은 연산자 뒤 0이 선입력인지 고려할 것. 예: 비어있는상태 or 연산자, 괄호 뒤 등에 0 입력후 다른숫자 입력시: 05-> 5로 변경 필요)
 
-
 #! 모든 멤버함수들은 생성자에서 초기화한 formula를 void함수처럼 수정하지만, str타입으로 formula를 리턴하기도 한다.
 class AdjustFormula:
     def __init__(self, formula:str = ""):
@@ -54,7 +53,6 @@ class AdjustFormula:
         if self.formula == "": self.formula = '0'
         return self.formula
 
-
     def replace_percent_with_division(self) -> str:
         # Replace "/ 100" instead of "%"
         if "%" in self.formula:
@@ -62,8 +60,7 @@ class AdjustFormula:
                 self.formula = self.formula.replace("%", "/100")  
         return self.formula
 
-
-
+    # 종합 실행(수식보정 모든함수)
     def get_standard_fix(self) -> str:
         self.fix_missing_one()
         self.insert_multipication_after_percent()

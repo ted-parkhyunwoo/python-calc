@@ -9,13 +9,12 @@ COLORS = ["#2C3333", "#395B64", "#A5C9CA", "#E7F6F2"]   #Color set from https://
 ALLOWED_CHARS =list("0123456789./-+*%()")
 INPUT_LIMIT = 30    # user input length limit.
 
-Last_Display = ""                  # 계산 기록 추가용 임시 변수: global로 업데이트됨.
-Prepare_for_New_input = False      # this trigger will turn on True after calc. (for clear display if you click number.)
-
+Last_Display = ""                  # 최근 계산기록 메모리 전역변수: update_recent_labels() 에서 global로 업데이트됨.
+Prepare_for_New_input = False      # this trigger will turn on True after calc. (for clear display if you click number.): 결과출력후 수식입력시 디스플레이 삭제용 트리거
 
 #### Inheritance functions ####
 
-def check_safe_for_eval(user_input):        #Check unauthorized input because this code use eval(this is dangerous) function.
+def check_safe_for_eval(user_input):        # Check unauthorized input because this code use eval(this is dangerous) function.
     for char in user_input:
         if char not in ALLOWED_CHARS:
             return False 
@@ -32,7 +31,7 @@ def find_last_ops_index(user_input):        # Used as an inheritance function
                 replace[replace.index(c)] = "removed"
     return last_ops_index
 
-def update_input_ready_status(func=False):  #first_input trigger switching method. 
+def update_input_ready_status(func=False):  # first_input trigger switching method. 
     global Prepare_for_New_input   
     if func == True:
         Prepare_for_New_input = True
@@ -50,25 +49,46 @@ def invalid_formula_length(formula:str) -> bool:        # Check if the formula e
     if len(formula) > INPUT_LIMIT: return True
     return False
 
-def error_print(msg: str = "ERROR") -> None:    # Display a message in the entry, disable the button, and restore it after 3 seconds.    
+def error_display(errmsg: str = "ERROR") -> None:    # Display a message in the entry, disable the button, and restore it after 3 seconds.    
     def disable_button(): equals_button.config(bg="red", state=DISABLED)
     def restore_button(): equals_button.config(bg=COLORS[1], fg=COLORS[3], state=NORMAL)
     def clear_display(): display_entry.delete(0, END)
     
     disable_button()
     clear_display()
-    display_entry.insert(0, msg)
-    
+    display_entry.insert(0, errmsg)
     window.after(3000, lambda: (restore_button(), clear_display())) # windows에 전달할 함수가 복수라면 램다를 사용
 
-# 정밀도 보정함수 : 25-04-20
-def adjust_precision(result: float) -> float:    
+def adjust_precision(result: float) -> float:           # 정밀도 보정함수 : 25-04-20
     if result == int(result): result = int(result)      # 정수로 변환 가능한 경우 정수로 변환
     else: result = round(result, 13)                    # 소수점 이하 13자리까지 반올림
 
     if abs(result - int(round(result))) < 0.000_000_000_001:    
         result = int(round(result))                 # 매우 작은 오차 보정 (결과값이 정수에 가까운 경우 정수로 변환)
     return result                
+                
+def update_recent_labels(formula:str, result:str):      # Update recent labels and Update display_entry(except input just "=") : 25-04-21
+    display_entry.delete(0, END)
+    display_entry.insert(0, str(result))
+    
+    global Last_Display 
+    if "=" in str(Last_Display):    # if Last_Display has result without fomula.
+        Last_Display_result = Last_Display.split('=')[-1]
+    else:
+        Last_Display_result = Last_Display  
+        
+    Old_Display = Last_Display
+    Last_Display = (f"{formula}={result:,}")  #for update recent label.
+        
+    if len(Last_Display) >= 40:
+        Last_Display = f"{result:,}"   #Last_Display is just result if that is longer than 27 chars
+        
+    if Last_Display_result != formula:  
+        if recent_label_1["text"] == "":
+            recent_label_1.config(text=Last_Display)
+        else:
+            recent_label_2.config(text=Old_Display)
+            recent_label_1.config(text=Last_Display)         
                 
                 
 #### Button functions ####
@@ -158,20 +178,19 @@ def parentheses():      # '( )' Bottn.
     else:
         display_entry.insert(END, "error")
 
-#! TODO : equals() 함수내부 복잡도때문에 함수화 리팩토링 진행중
 def equals():       # '=' Button.
-    
+
+    # init user_formula and user_formula result.    
     #! TODO : str 리턴식으로 바꿀 것을 검토. : equals()함수에도 쓰이지만, operator_button() 에서도 쓰여서 아래 AdjustFormula모듈 첨가에 어려움을 겪는중.
     pop_last_invalid_ops()   # remove incorrect operators before calculation. ('1+3-=' > '1+3=')
     user_formula:str = AdjustFormula(display_entry.get()).get_standard_fix()        # adjust_formula class화 (다양한 수식 오류 보정) 25-04-21
-    
+    user_formula_result:float = 0.0                                                 # init user_formula_result.
+            
+    # Error handling:
     if invalid_formula_length(user_formula):            # 수식길이제한 예외처리: check formula is valid length
-        window.after(0, lambda: error_print(f"OUT OF RANGE({len(user_formula)}/{INPUT_LIMIT})"))
+        window.after(0, lambda: error_display(errmsg= f"OUT OF RANGE({len(user_formula)}/{INPUT_LIMIT})"))
         return
-                  
-    # Try make Result
-    user_formula_result:float = 0.0            # init user_formula_result.
-    
+
     #! IMPORTANT TODO: 잘못된 에러처리 검토. 잘못된 입력은 check_safe_for_eval에서 실패해야되는데 왜 except로 넘어가는지 모르겠음
     try:
         if check_safe_for_eval(user_formula):  #! 원래 eval검사용이었으나, calc로 바뀌고 현재 식에 사용된 문자 유효성 검사로 사용중.
@@ -180,38 +199,13 @@ def equals():       # '=' Button.
             update_input_ready_status(True)  # This trigger will clear display if you click number after calc.
         else:
             raise ValueError("Unauthorized input")      #! TODO: raise 대신 except처럼 사용 고려.
-        
-    # Exception Handling -> quit equals.
     except:
         print(f"DEBUG: user_formula = {user_formula}, user_formula_result = {user_formula_result}")       #! TEST디버그출력
-        window.after(0, lambda: error_print("ERROR"))
+        window.after(0, lambda: error_display(errmsg= "ERROR"))
         return
-        
-    # Update result on display_entry : entry의 계산식을 제거하고, 결과로 업데이트.
-    display_entry.delete(0, END)
-    display_entry.insert(0, str(user_formula_result))
     
-    
-    #! TODO: 최근 계산결과 업데이트 기록기능:  함수화 고려.
-    # Recent result labels Update (except input just "=")
-    global Last_Display 
-    if "=" in str(Last_Display):    # if Last_Display has result without fomula.
-        Last_Display_result = Last_Display.split('=')[-1]   
-    else:
-        Last_Display_result = Last_Display  
-        
-    Last_Display_2 = Last_Display
-    Last_Display = (f"{user_formula}={user_formula_result:,}")  #for update recent label.   #! last_questestion->current. 기능 삭제(%->/100) 25-04-21
-        
-    if len(Last_Display) >= 40:
-        Last_Display = f"{user_formula_result:,}"   #Last_Display is just result if that is longer than 27 chars
-        
-    if Last_Display_result != user_formula:  
-        if recent_label_1["text"] == "":
-            recent_label_1.config(text=Last_Display)
-        else:
-            recent_label_2.config(text=Last_Display_2)
-            recent_label_1.config(text=Last_Display)
+    # UI update recent_label 1, 2 and update display_entry
+    update_recent_labels(formula=user_formula, result= user_formula_result)     
             
             
 #### UI ####
