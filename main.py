@@ -16,20 +16,17 @@ Prepare_for_New_input = False      # check ready for input trigger: turn on True
 
 
 #### TEST CODES - KEYBOARD BIND 보조 함수들
+
 def openParentheses():
-    # 열때 직전입력 괄호열기면 곱하기 추가
-    current_entry:str = display_entry.get()
-    if current_entry != "" and current_entry[-1] == ")": display_entry.insert(END, "*(")
+    # 열때 직전입력 ')' 면 사이에 '*' 추가
+    if display_entry.get() != "" and display_entry.get()[-1] == ")": display_entry.insert(END, "*(")
     else: display_entry.insert(END, "(")
         
 def closeParentheses():
     current_entry:str = display_entry.get()
-    # 비어있는데 닫히면 무시됨
-    if current_entry == "": return
-    # 열린적도 없는데 닫는게 먼저 나오면 무시됨
-    if current_entry.count("(") <= current_entry.count(")"): return
-    # 괄호를 열자마자 닫으면 무시됨
-    if current_entry[-1] == "(": return
+    if current_entry == "": return          # 비어있는데 닫히면 무시됨
+    if current_entry.count("(") <= current_entry.count(")"): return     # 열린적도 없는데 닫는게 먼저 나오면 무시됨
+    if current_entry[-1] == "(": return     # 괄호를 열자마자 닫으면 무시됨
     display_entry.insert(END, ")")
     
 def backspace(event):    # It's created to handle the scenario where the entry widget loses focus.
@@ -229,18 +226,28 @@ def equals():       # '=' Button.
     user_formula_result:float = 0.0
             
     # Error handling:
+    
     try:
         if not allowed_keys_input(user_formula): raise ValueError("Unauthorized input")
         if invalid_formula_length(user_formula): raise ValueError("Out of range")         
         
     except ValueError as e:
-        print(f"ERR: err = {str(e)}, user_formula = {user_formula}, user_formula_result = {user_formula_result}")       #! TEST디버그출력
+        # print(f"ERR: err = {str(e)}, user_formula = {user_formula}, user_formula_result = {user_formula_result}")       #! TEST DEBUG CODE
         if str(e) == "Unauthorized input": window.after(0, lambda: error_display(errmsg= "Unauthorized input"))
         if str(e) == "Out of range": window.after(0, lambda: error_display(errmsg= f"OUT OF RANGE({len(user_formula)}/{INPUT_LIMIT})"))
         return
     
+    # print(f"DEBUG: {user_formula}")       #! TEST DEBUG CODE
+    
     # calculating and fix precision.
-    user_formula_result = adjust_precision(calc(user_formula))     # 정밀도 보정 함수 적용 (25-04-20)
+    try:
+        user_formula_result = adjust_precision(calc(user_formula))     # 정밀도 보정 함수 적용 (25-04-20)
+    except:
+        errmsg = (f"Failed read formula: {user_formula}")
+        window.after(0, lambda: error_display(errmsg= errmsg))
+        return
+    
+    
     update_input_ready_status(True)             # This trigger will clear display if you click number after calc.
 
     # UI update recent_label 1, 2 and update display_entry

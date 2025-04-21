@@ -11,6 +11,9 @@ class AdjustFormula:
         # replace "(*" to "(1*"
         if "(*" in self.formula:
             self.formula = self.formula.replace("(*", "(1*")
+        # DEBUG: replace "(/" to "(1/"
+        if "(/" in self.formula:
+            self.formula = self.formula.replace("(/", "(1/")     
         return self.formula
 
     def insert_multipication_after_percent(self) -> str:
@@ -59,15 +62,29 @@ class AdjustFormula:
             for _ in range(self.formula.count("%")):
                 self.formula = self.formula.replace("%", "/100")  
         return self.formula
+    
+    def remove_last_open_parentheses_and_operator(self) -> str:
+        # 3 + 4*( -> 3+4
+        while self.formula and self.formula[-1] == "(":
+            self.formula = self.formula[:-1]
+            while self.formula and self.formula[-1] in "+-*/":
+                self.formula = self.formula[:-1]
+        
+        return self.formula
+
 
     # 종합 실행(수식보정 모든함수)
     def get_standard_fix(self) -> str:
-        self.fix_missing_one()
-        self.insert_multipication_after_percent()
-        self.fix_missing_parentheses_multipication()
-        self.close_unmatched_parentheses()
-        self.handle_missing_formula()
-        self.replace_percent_with_division()
+        prev_formula = ""
+        while self.formula != prev_formula:
+            self.remove_last_open_parentheses_and_operator()
+            self.fix_missing_one()
+            self.insert_multipication_after_percent()
+            self.fix_missing_parentheses_multipication()
+            self.close_unmatched_parentheses()
+            self.handle_missing_formula()
+            self.replace_percent_with_division()
+            prev_formula = self.formula
         return self.formula
     
     
