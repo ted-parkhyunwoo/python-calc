@@ -15,24 +15,41 @@ Last_Display = ""                  # last history result memory: update_recent_l
 Prepare_for_New_input = False      # check ready for input trigger: turn on True after equals(). (for clear display if you click number. 결과출력후 새 수식입력시 디스플레이 업데이트용 트리거)
 
 
-#### TEST CODE
-#! IDEA: 괄호 입력 커스텀입력용. 괄호가 틀리면 보정하지않고, 수식검사하여 에러 뱉을것, 트리거생성필요, 괄호검사필요. -> 현재 괄호열기닫기 TEST보정과 자동닫기 기능때문에 작동은 됨.
+#### TEST CODES - KEYBOARD BIND 보조 함수들
 def openParentheses():
-    #!TEST: 열때 앞에 괄호면 곱셈추가
+    # 열때 직전입력 괄호열기면 곱하기 추가
     current_entry:str = display_entry.get()
-    if current_entry != "" and current_entry[-1] == ")":
-        display_entry.insert(END, "*(")
-    else:
-        display_entry.insert(END, "(")
+    if current_entry != "" and current_entry[-1] == ")": display_entry.insert(END, "*(")
+    else: display_entry.insert(END, "(")
+        
 def closeParentheses():
-    #! TEST: 열린적도 없는데 닫는게 먼저 나오면 무시됨
     current_entry:str = display_entry.get()
-    if current_entry.count("(") <= current_entry.count(")"):
-        return
-    #! TEST: 괄호를 열자마자 닫으면 무시됨
-    if current_entry[-1] == "(":
-        return
+    # 비어있는데 닫히면 무시됨
+    if current_entry == "": return
+    # 열린적도 없는데 닫는게 먼저 나오면 무시됨
+    if current_entry.count("(") <= current_entry.count(")"): return
+    # 괄호를 열자마자 닫으면 무시됨
+    if current_entry[-1] == "(": return
     display_entry.insert(END, ")")
+    
+def backspace(event):    # It's created to handle the scenario where the entry widget loses focus.
+    current = display_entry.get()
+    focus = str(window.focus_get())        #TIP. tkinter focus_get() return your active widget name.
+    if focus != ".!frame.!entry":
+        if len(current) > 0:
+            last_index = len(current) -1
+            display_entry.delete(last_index, END)  
+
+def set_window_focus(event):      # display_entry 포커스시 강제 포커스해제, break
+    window.focus_set()            
+    key_perssed = event.char
+    # 첫입력은 허용: 숫자, 괄호열기, - 까지도 허용해줘야함. 괄호열기는 함수로 관리해서 안적어도됨
+    if display_entry.get() == "":
+        if key_perssed in "0123456789":
+            number_input(key_perssed)
+        if key_perssed == "-":
+            operator_button(key_perssed)
+    return "break"
 
 
 #### Inheritance functions ####
@@ -129,6 +146,8 @@ def number_input(num):
     display_entry.insert(END, num)
     
 def operator_button(operator):
+    #! DEBUG: - 빼고는 비어있는상태에선 시작할 수 없음 25-04-21
+    if operator in "+*/" and display_entry.get() == "": return
     pop_last_invalid_ops()
     update_input_ready_status()
     display_entry.insert(END, operator)
@@ -140,6 +159,7 @@ def point():    # '.' Button
     display_entry.insert(END, ".")
     
 def clear():    # 'C' Button
+    window.focus_set()
     update_input_ready_status()
     display_entry.delete(0, END)
 
@@ -201,6 +221,7 @@ def parentheses():      # '( )' Bottn.
         display_entry.insert(END, "error")
 
 def equals():       # '=' Button.
+    window.focus_set()
     pop_last_invalid_ops()   # remove incorrect operators before calculation. ('1+3-=' > '1+3=')
     
     # make and init user_formula and user_formula result.    
@@ -296,55 +317,18 @@ equals_button = Button(button_frame, text="=", font=BUTTON_FONT, width=3,height=
 equals_button.grid(column=3, row=4)
 
 #### Bind keyboard  - Button input is preferred. Only some function keys are bound to the keyboard. ####
-def backspace(event):    # It's created to handle the scenario where the entry widget loses focus.
-    current = display_entry.get()
-    focus = str(window.focus_get())        #TIP. tkinter focus_get() return your active widget name.
-    if focus != ".!frame.!entry":
-        if len(current) > 0:
-            last_index = len(current) -1
-            display_entry.delete(last_index, END)  
-            
-# 숫자 키와 연산자 키를 bind로 연결
-window.bind("1", lambda event: number_input("1"))
-window.bind("2", lambda event: number_input("2"))
-window.bind("3", lambda event: number_input("3"))
-window.bind("4", lambda event: number_input("4"))
-window.bind("5", lambda event: number_input("5"))
-window.bind("6", lambda event: number_input("6"))
-window.bind("7", lambda event: number_input("7"))
-window.bind("8", lambda event: number_input("8"))
-window.bind("9", lambda event: number_input("9"))
-window.bind("0", lambda event: number_input("0"))
 
-# 연산자 키 연결
-window.bind("+", lambda event: operator_button("+"))
-window.bind("-", lambda event: operator_button("-"))
-window.bind("*", lambda event: operator_button("*"))
-window.bind("/", lambda event: operator_button("/"))
-window.bind("%", lambda event: operator_button("%"))
+for n in "0123456789": window.bind(n, lambda event, n = n: number_input(num=n))
+for o in "+-*/&": window.bind(o, lambda event, o = o: operator_button(operator=o))
 
 # 기타 기능 키 연결
-window.bind(".", lambda event: point())  # 소수점
 window.bind("<Return>", lambda event: equals())  # Enter 키로 계산
-window.bind("<BackSpace>", backspace)  # Backspace 키로 삭제
 window.bind("<Escape>", lambda event: clear())  # Escape 키로 초기화
-
-#! TEST: CUSTOM 입력 괄호기능
 window.bind("(", lambda event: openParentheses())
 window.bind(")", lambda event: closeParentheses())
+window.bind("<BackSpace>", backspace)  # Backspace 키로 삭제
 
-
-
-#! TEST CODE
-# display_entry에서 직접 입력을 막는 함수 -> 강제로 포커스를 window로 보냄.
-#! 정상입력도 강제로 포커스를 window로 보내는처리를 하기 떄문에 입력안됨.(구현하려 시도했으나, 중복입력등 오류가 있음.)
-#! 그러면 엔트리 복사붙여넣기는 어떻게..?
-
-def block_direct_input(event):
-    window.focus()
-    return "break"
-
-# display_entry에 키보드 입력 차단 바인딩
-display_entry.bind("<Key>", block_direct_input)
+# display_entry 모드시 키보드바인딩 (set_window_focus: 강제 entry 포커스해제)
+display_entry.bind("<Key>", set_window_focus)
 
 window.mainloop()
