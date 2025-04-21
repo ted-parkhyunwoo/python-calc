@@ -14,6 +14,27 @@ INPUT_LIMIT = 30    # user input length limit.
 Last_Display = ""                  # last history result memory: update_recent_labels() 에서 global로 업데이트됨.
 Prepare_for_New_input = False      # check ready for input trigger: turn on True after equals(). (for clear display if you click number. 결과출력후 새 수식입력시 디스플레이 업데이트용 트리거)
 
+
+#### TEST CODE
+#! IDEA: 괄호 입력 커스텀입력용. 괄호가 틀리면 보정하지않고, 수식검사하여 에러 뱉을것, 트리거생성필요, 괄호검사필요. -> 현재 괄호열기닫기 TEST보정과 자동닫기 기능때문에 작동은 됨.
+def openParentheses():
+    #!TEST: 열때 앞에 괄호면 곱셈추가
+    current_entry:str = display_entry.get()
+    if current_entry != "" and current_entry[-1] == ")":
+        display_entry.insert(END, "*(")
+    else:
+        display_entry.insert(END, "(")
+def closeParentheses():
+    #! TEST: 열린적도 없는데 닫는게 먼저 나오면 무시됨
+    current_entry:str = display_entry.get()
+    if current_entry.count("(") <= current_entry.count(")"):
+        return
+    #! TEST: 괄호를 열자마자 닫으면 무시됨
+    if current_entry[-1] == "(":
+        return
+    display_entry.insert(END, ")")
+
+
 #### Inheritance functions ####
 
 def allowed_keys_input(user_input:str) -> bool:        # Check unauthorized keyboard custom input
@@ -283,8 +304,47 @@ def backspace(event):    # It's created to handle the scenario where the entry w
             last_index = len(current) -1
             display_entry.delete(last_index, END)  
             
-window.bind("<BackSpace>", backspace) 
-window.bind("<Escape>", lambda event: clear())      #TIP. bind need 'event' argument. use lambda because it is very simple. 
-window.bind("<Return>", lambda event: equals())
+# 숫자 키와 연산자 키를 bind로 연결
+window.bind("1", lambda event: number_input("1"))
+window.bind("2", lambda event: number_input("2"))
+window.bind("3", lambda event: number_input("3"))
+window.bind("4", lambda event: number_input("4"))
+window.bind("5", lambda event: number_input("5"))
+window.bind("6", lambda event: number_input("6"))
+window.bind("7", lambda event: number_input("7"))
+window.bind("8", lambda event: number_input("8"))
+window.bind("9", lambda event: number_input("9"))
+window.bind("0", lambda event: number_input("0"))
+
+# 연산자 키 연결
+window.bind("+", lambda event: operator_button("+"))
+window.bind("-", lambda event: operator_button("-"))
+window.bind("*", lambda event: operator_button("*"))
+window.bind("/", lambda event: operator_button("/"))
+window.bind("%", lambda event: operator_button("%"))
+
+# 기타 기능 키 연결
+window.bind(".", lambda event: point())  # 소수점
+window.bind("<Return>", lambda event: equals())  # Enter 키로 계산
+window.bind("<BackSpace>", backspace)  # Backspace 키로 삭제
+window.bind("<Escape>", lambda event: clear())  # Escape 키로 초기화
+
+#! TEST: CUSTOM 입력 괄호기능
+window.bind("(", lambda event: openParentheses())
+window.bind(")", lambda event: closeParentheses())
+
+
+
+#! TEST CODE
+# display_entry에서 직접 입력을 막는 함수 -> 강제로 포커스를 window로 보냄.
+#! 정상입력도 강제로 포커스를 window로 보내는처리를 하기 떄문에 입력안됨.(구현하려 시도했으나, 중복입력등 오류가 있음.)
+#! 그러면 엔트리 복사붙여넣기는 어떻게..?
+
+def block_direct_input(event):
+    window.focus()
+    return "break"
+
+# display_entry에 키보드 입력 차단 바인딩
+display_entry.bind("<Key>", block_direct_input)
 
 window.mainloop()
