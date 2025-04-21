@@ -15,7 +15,7 @@ Last_Display = ""                  # last history result memory: update_recent_l
 Prepare_for_New_input = False      # check ready for input trigger: turn on True after equals(). (for clear display if you click number. 결과출력후 새 수식입력시 디스플레이 업데이트용 트리거)
 
 
-#### TEST CODES - KEYBOARD BIND 보조 함수들
+#### Keyboard bind helper functions
 
 def openParentheses():
     # 열때 직전입력 ')' 면 사이에 '*' 추가
@@ -195,6 +195,7 @@ def signchange():       # '+-' Button.
         elif current[0] == "-":
             display_entry.delete(0)      
 
+
 # Auto Open/Closing: Algorithm for deciding whether to open or close parentheses when "pressing the corresponding button"            
 def parentheses():      # '( )' Bottn.
     update_input_ready_status()
@@ -222,11 +223,10 @@ def equals():       # '=' Button.
     pop_last_invalid_ops()   # remove incorrect operators before calculation. ('1+3-=' > '1+3=')
     
     # make and init user_formula and user_formula result.    
-    user_formula:str = AdjustFormula(display_entry.get()).get_standard_fix()        # adjust_formula class화 (다양한 수식 오류 보정) 25-04-21
+    user_formula:str = AdjustFormula(display_entry.get()).get_standard_fix()        # Adjustments for various formula errors 25-04-21
     user_formula_result:float = 0.0
             
     # Error handling:
-    
     try:
         if not allowed_keys_input(user_formula): raise ValueError("Unauthorized input")
         if invalid_formula_length(user_formula): raise ValueError("Out of range")         
@@ -238,8 +238,8 @@ def equals():       # '=' Button.
         return
     
     # print(f"DEBUG: {user_formula}")       #! TEST DEBUG CODE
-    
-    # calculating and fix precision.
+
+    # calculating and fix precision.        #! Handling unexpected errors (25-04-21)
     try:
         user_formula_result = adjust_precision(calc(user_formula))     # 정밀도 보정 함수 적용 (25-04-20)
     except:
@@ -325,17 +325,18 @@ equals_button.grid(column=3, row=4)
 
 #### Bind keyboard  - Button input is preferred. Only some function keys are bound to the keyboard. ####
 
+# number and operator keys bind.
 for n in "0123456789": window.bind(n, lambda event, n = n: number_input(num=n))
 for o in "+-*/&": window.bind(o, lambda event, o = o: operator_button(operator=o))
 
-# 기타 기능 키 연결
-window.bind("<Return>", lambda event: equals())  # Enter 키로 계산
-window.bind("<Escape>", lambda event: clear())  # Escape 키로 초기화
+# function keys bind.
+window.bind("<Return>", lambda event: equals())     # enter
+window.bind("<Escape>", lambda event: clear())      # esc
 window.bind("(", lambda event: openParentheses())
 window.bind(")", lambda event: closeParentheses())
-window.bind("<BackSpace>", backspace)  # Backspace 키로 삭제
+window.bind("<BackSpace>", backspace)               # backspace
 
-# display_entry 모드시 키보드바인딩 (set_window_focus: 강제 entry 포커스해제)
+# deactive display_entry focus bind.(every key event on display_entry -> set_window_focus(): window.focus_set())
 display_entry.bind("<Key>", set_window_focus)
 
 window.mainloop()
