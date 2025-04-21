@@ -63,21 +63,24 @@ class AdjustFormula:
                 self.formula = self.formula.replace("%", "/100")  
         return self.formula
     
-    def remove_last_open_parentheses_and_operator(self) -> str:
-        # 3 + 4*( -> 3+4
+    def remove_last_open_parentheses(self) -> str:
+        # 3 + 4( -> 3+4
         while self.formula and self.formula[-1] == "(":
-            self.formula = self.formula[:-1]
-            while self.formula and self.formula[-1] in "+-*/":
-                self.formula = self.formula[:-1]
-        
+            self.formula = self.formula[:-1]  
         return self.formula
-
+    
+    def remove_last_invalid_ops(self) -> str:         
+        # remove the last operator if the last input is an operator. - Used as an inheritance function.
+        if self.formula != "" and self.formula[-1] in OPS:
+            self.formula = self.formula[:-1]
+        return self.formula
 
     # 종합 실행(수식보정 모든함수)
     def get_standard_fix(self) -> str:
         prev_formula = ""
         while self.formula != prev_formula:
-            self.remove_last_open_parentheses_and_operator()
+            self.remove_last_invalid_ops()
+            self.remove_last_open_parentheses()
             self.fix_missing_one()
             self.insert_multipication_after_percent()
             self.fix_missing_parentheses_multipication()
@@ -86,5 +89,5 @@ class AdjustFormula:
             self.replace_percent_with_division()
             prev_formula = self.formula
         return self.formula
-    
-    
+
+

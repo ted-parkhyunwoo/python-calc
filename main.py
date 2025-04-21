@@ -3,7 +3,7 @@ from calc import calc
 from adjust_formula import AdjustFormula
 
 # Constant
-OPS = ["*", "/", "+", "-"]
+OPS = ["*", "/", "+", "-", "%"]
 BUTTON_FONT = "Courier", 25, "bold"
 DISPLAY_FONT = "Courier", 14, "italic"
 COLORS = ["#2C3333", "#395B64", "#A5C9CA", "#E7F6F2"]   #Color set from https://colorhunt.co/palette/2c3333395b64a5c9cae7f6f2
@@ -74,13 +74,6 @@ def update_input_ready_status(func=False) -> None:      # first_input trigger sw
         Prepare_for_New_input = True
     else:
         Prepare_for_New_input = False 
-        
-def pop_last_invalid_ops() -> None:         # remove the last operator if the last input is an operator. - Used as an inheritance function.
-    current = display_entry.get()
-    if len(current) > 0:
-        if current[-1] in OPS:
-            last_index = len(current) -1
-            display_entry.delete(last_index, END)    
             
 def invalid_formula_length(formula:str) -> bool:        # Check if the formula exceeds the allowed length limit
     if len(formula) > INPUT_LIMIT: return True
@@ -94,7 +87,7 @@ def error_display(errmsg: str = "ERROR") -> None:    # Display a message in the 
     disable_button()
     clear_display()
     display_entry.insert(0, errmsg)
-    window.after(3000, lambda: (restore_button(), clear_display())) # tip: windows에 전달할 함수가 복수라면 램다를 사용
+    window.after(3000, lambda: (restore_button(), clear_display())) # tip: windows에 전달할 함수가 복수라면 람다를 사용
 
 def adjust_precision(result: float) -> float:           # 정밀도 보정함수 : 25-04-20
     if result == int(result): result = int(result)      # 정수로 변환 가능한 경우 정수로 변환
@@ -129,29 +122,49 @@ def update_recent_labels(formula:str, result:str) -> None:      # Update recent 
 #### Button functions ####
 
 ## Number (0~9) and Operators (*, /, +, -, %) ##
-def insert_multiplication():   # Auto insert "*" after ")" - Used as an inheritance function
+def insert_mul_operator_after_parentheses_closed():   # Auto insert "*" after ")" - Used as an inheritance function
     current = display_entry.get()
     if current != "":
         if current[-1] == ")":
             display_entry.insert(END, "*")
             
 def number_input(num):
-    insert_multiplication() 
+    insert_mul_operator_after_parentheses_closed() 
     if Prepare_for_New_input:
         display_entry.delete(0, END)      
     update_input_ready_status()    #Trigger make False.
     display_entry.insert(END, num)
     
 def operator_button(operator):
-    #! DEBUG: - 빼고는 비어있는상태에선 시작할 수 없음 25-04-21
-    if operator in "+*/" and display_entry.get() == "": return
-    pop_last_invalid_ops()
+    content = display_entry.get()
+    if operator in "+*/%" and content == "": return     # DEBUG: 비어있는상태에선 시작할 수 없음 25-04-21
+    if content == "-":  # DEBUG: - 기호만 입력된 상태에서 연산자를 다시 누르는것을 허용하지 않음 25-04-22
+        if operator == "-":             # 단항 '-' 입력된 상태에서 다시 입력시 제거
+            display_entry.delete(0, END)
+            return
+        else: return       
+
+    if len(content) > 0:            # 연산자 연속입력시 최근입력된 연산자만 사용 기능 내부화 25-04-22
+        if content[-1] in OPS:
+            last_index = len(content) -1
+            display_entry.delete(last_index, END)   
+            
     update_input_ready_status()
     display_entry.insert(END, operator)
     
     
 ## Function keys    (., C, +-, (), =) ##
-def point():    # '.' Button
+def point():  # '.' Button
+    content = display_entry.get()
+    if content == "": return        # 비어있으면 입력금지
+    if content[-1] in OPS: return   # 앞에 연산자이면 입력금지
+    
+    # 뒤에서부터 탐색하여 마지막 연산자 이후의 숫자를 가져옴 (연산자, 비어있는기준 마지막 입력된 숫자 파싱)
+    last_number = ""
+    for char in reversed(content):
+        if char in OPS: break
+        last_number = char + last_number  #! 숫자를 앞에 추가 (reversed 된걸 다시 거꾸로 추가함)
+    if "." in last_number: return   # 마지막 숫자에 이미 '.'이 포함되어 있으면 입력 차단
     update_input_ready_status()
     display_entry.insert(END, ".")
     
@@ -219,9 +232,7 @@ def parentheses():      # '( )' Bottn.
         display_entry.insert(END, "error")
 
 def equals():       # '=' Button.
-    window.focus_set()
-    pop_last_invalid_ops()   # remove incorrect operators before calculation. ('1+3-=' > '1+3=')
-    
+    window.focus_set()    
     # make and init user_formula and user_formula result.    
     user_formula:str = AdjustFormula(display_entry.get()).get_standard_fix()        # Adjustments for various formula errors 25-04-21
     user_formula_result:float = 0.0
@@ -238,8 +249,7 @@ def equals():       # '=' Button.
         return
     
     # print(f"DEBUG: {user_formula}")       #! TEST DEBUG CODE
-
-    # calculating and fix precision.        #! Handling unexpected errors (25-04-21)
+    # calculating and fix precision with Handling unexpected errors (25-04-21)
     try:
         user_formula_result = adjust_precision(calc(user_formula))     # 정밀도 보정 함수 적용 (25-04-20)
     except:
@@ -277,59 +287,58 @@ display_entry.grid(column=0, row=3)
 #### BUTTONS FRAME ####
 button_frame = Frame(window)
 button_frame.grid(column=0,row=2)
-## FirstLine(Top)         #Tip. Use lambda to delay function call until event (e.g., button press)
-clear_button = Button(button_frame, text="C", font=BUTTON_FONT, width=3,height=1, highlightthickness=0, command=clear, bg=COLORS[1], fg=COLORS[3])
-clear_button.grid(column=0, row=0)
-parentheses_button = Button(button_frame, text="( )", font=BUTTON_FONT, width=3,height=1, highlightthickness=0, command=parentheses, bg=COLORS[2], fg=COLORS[3])
-parentheses_button.grid(column=1, row=0)
-percent_button = Button(button_frame, text="%", font=BUTTON_FONT, width=3,height=1, highlightthickness=0, command=lambda:operator_button("%"), bg=COLORS[2], fg=COLORS[3])
-percent_button.grid(column=2, row=0)
-division_button = Button(button_frame, text="/", font=BUTTON_FONT, width=3,height=1, highlightthickness=0, command=lambda:operator_button("/"), bg=COLORS[2], fg=COLORS[3])
-division_button.grid(column=3, row=0)
-## SecondLine
-seven_button = Button(button_frame, text="7", font=BUTTON_FONT, width=3,height=1, highlightthickness=0, command=lambda:number_input("7"), bg=COLORS[3], fg=COLORS[0])
-seven_button.grid(column=0, row=1)
-eight_button = Button(button_frame, text="8", font=BUTTON_FONT, width=3,height=1, highlightthickness=0, command=lambda:number_input("8"), bg=COLORS[3], fg=COLORS[0])
-eight_button.grid(column=1, row=1)
-nine_button = Button(button_frame, text="9", font=BUTTON_FONT, width=3,height=1, highlightthickness=0, command=lambda:number_input("9"), bg=COLORS[3], fg=COLORS[0])
-nine_button.grid(column=2, row=1)
-multiplication_button = Button(button_frame, text="*", font=BUTTON_FONT, width=3,height=1, highlightthickness=0, command=lambda:operator_button("*"), bg=COLORS[2], fg=COLORS[3])
-multiplication_button.grid(column=3, row=1)
-## ThirdLine
-four_button = Button(button_frame, text="4", font=BUTTON_FONT, width=3,height=1, highlightthickness=0, command=lambda:number_input("4"), bg=COLORS[3], fg=COLORS[0])
-four_button.grid(column=0, row=2)
-five_button = Button(button_frame, text="5", font=BUTTON_FONT, width=3,height=1, highlightthickness=0, command=lambda:number_input("5"), bg=COLORS[3], fg=COLORS[0])
-five_button.grid(column=1, row=2)
-six_button = Button(button_frame, text="6", font=BUTTON_FONT, width=3,height=1, highlightthickness=0, command=lambda:number_input("6"), bg=COLORS[3], fg=COLORS[0])
-six_button.grid(column=2, row=2)
-subtraction_button = Button(button_frame, text="-", font=BUTTON_FONT, width=3,height=1, highlightthickness=0, command=lambda:operator_button("-"), bg=COLORS[2], fg=COLORS[3])
-subtraction_button.grid(column=3, row=2)
-## FourthLine
-one_button = Button(button_frame, text="1", font=BUTTON_FONT, width=3,height=1, highlightthickness=0, command=lambda:number_input("1"), bg=COLORS[3], fg=COLORS[0])
-one_button.grid(column=0, row=3)
-two_button = Button(button_frame, text="2", font=BUTTON_FONT, width=3,height=1, highlightthickness=0, command=lambda:number_input("2"), bg=COLORS[3], fg=COLORS[0])
-two_button.grid(column=1, row=3)
-three_button = Button(button_frame, text="3", font=BUTTON_FONT, width=3,height=1, highlightthickness=0, command=lambda:number_input("3"), bg=COLORS[3], fg=COLORS[0])
-three_button.grid(column=2, row=3)
-addition_button = Button(button_frame, text="+", font=BUTTON_FONT, width=3,height=1, highlightthickness=0, command=lambda:operator_button("+"), bg=COLORS[2], fg=COLORS[3])
-addition_button.grid(column=3, row=3)
-## FifthLine(Bottom)
-signchange_button = Button(button_frame, text="+/-", font=BUTTON_FONT, width=3,height=1, highlightthickness=0, command=signchange, bg=COLORS[3], fg=COLORS[0])
-signchange_button.grid(column=0, row=4)
-zero_button = Button(button_frame, text="0", font=BUTTON_FONT, width=3,height=1, highlightthickness=0, command=lambda:number_input("0"), bg=COLORS[3], fg=COLORS[0])
-zero_button.grid(column=1, row=4)
-point_button = Button(button_frame, text=".", font=BUTTON_FONT, width=3,height=1, highlightthickness=0, command=point, bg=COLORS[3], fg=COLORS[0])
-point_button.grid(column=2, row=4)
-equals_button = Button(button_frame, text="=", font=BUTTON_FONT, width=3,height=1, highlightthickness=0, command=equals, bg=COLORS[1], fg=COLORS[3])
-equals_button.grid(column=3, row=4)
+#### BUTTONS FRAME ####
+button_frame = Frame(window)
+button_frame.grid(column=0, row=2)
+
+color_types = {"normal": (3, 0), "equal": (1, 3), "operator": (2, 3),}     # COLORS Index.
+buttons = [     
+    #(text, row, col, command, color_type)
+    # ROW 0
+    ("C",   0, 0, clear,                        "equal"),
+    ("( )", 0, 1, parentheses,                  "operator"),
+    ("%",   0, 2, lambda: operator_button("%"), "operator"),
+    ("/",   0, 3, lambda: operator_button("/"), "operator"),
+    # ROW 1
+    ("7",   1, 0, lambda: number_input("7"),    "normal"),
+    ("8",   1, 1, lambda: number_input("8"),    "normal"),
+    ("9",   1, 2, lambda: number_input("9"),    "normal"),
+    ("*",   1, 3, lambda: operator_button("*"), "operator"),
+    # ROW 2
+    ("4",   2, 0, lambda: number_input("4"),    "normal"),
+    ("5",   2, 1, lambda: number_input("5"),    "normal"),
+    ("6",   2, 2, lambda: number_input("6"),    "normal"),
+    ("-",   2, 3, lambda: operator_button("-"), "operator"),
+    # ROW 3
+    ("1",   3, 0, lambda: number_input("1"),    "normal"),
+    ("2",   3, 1, lambda: number_input("2"),    "normal"),
+    ("3",   3, 2, lambda: number_input("3"),    "normal"),
+    ("+",   3, 3, lambda: operator_button("+"), "operator"),
+    # ROW 4
+    ("+/-", 4, 0, signchange,                   "normal"),
+    ("0",   4, 1, lambda: number_input("0"),    "normal"),
+    (".",   4, 2, point,                        "normal"),
+    ("=",   4, 3, equals,                       "equal"),
+]
+
+for text, row, col, cmd, color_type in buttons:
+    bg_idx, fg_idx = color_types[color_type]
+    btn = Button( button_frame, text=text, font=BUTTON_FONT, width=3, height=1, highlightthickness=0, command=cmd, bg=COLORS[bg_idx], fg=COLORS[fg_idx],)
+    btn.grid(column=col, row=row)
+    
+    if text == "=":     # eqauls_button 은 에러 발생 등 색상 변경과 잠시 비활성화 해야 하기 때문에 글로벌 변수로 지정 
+        global equals_button
+        equals_button = btn
+        
 
 #### Bind keyboard  - Button input is preferred. Only some function keys are bound to the keyboard. ####
 
 # number and operator keys bind.
 for n in "0123456789": window.bind(n, lambda event, n = n: number_input(num=n))
-for o in "+-*/&": window.bind(o, lambda event, o = o: operator_button(operator=o))
+for o in "+-*/%": window.bind(o, lambda event, o = o: operator_button(operator=o))
 
 # function keys bind.
+window.bind(".", lambda event: point())
 window.bind("<Return>", lambda event: equals())     # enter
 window.bind("<Escape>", lambda event: clear())      # esc
 window.bind("(", lambda event: openParentheses())
