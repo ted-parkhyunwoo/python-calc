@@ -3,7 +3,7 @@ from calc import calc
 from adjust_formula import AdjustFormula
 
 # Constant
-OPS = ["*", "/", "+", "-", "%"]
+OPS = ["*", "/", "+", "-"]
 BUTTON_FONT = "Courier", 25, "bold"
 DISPLAY_FONT = "Courier", 14, "italic"
 COLORS = ["#2C3333", "#395B64", "#A5C9CA", "#E7F6F2"]   #Color set from https://colorhunt.co/palette/2c3333395b64a5c9cae7f6f2
@@ -11,7 +11,7 @@ ALLOWED_CHARS =list("0123456789./-+*%()")
 INPUT_LIMIT = 30    # user input length limit.
 
 # Global variable
-Last_Display = ""                  # last history result memory: update_recent_labels() 에서 global로 업데이트됨.
+Last_Display = ""                  # last history result memory: global로 업데이트됨.
 Prepare_for_New_input = False      # check ready for input trigger: turn on True after equals(). (for clear display if you click number. 결과출력후 새 수식입력시 디스플레이 업데이트용 트리거)
 
 
@@ -24,9 +24,9 @@ def openParentheses():
         
 def closeParentheses():
     current_entry:str = display_entry.get()
-    if current_entry == "": return          # 비어있는데 닫히면 무시됨
-    if current_entry.count("(") <= current_entry.count(")"): return     # 열린적도 없는데 닫는게 먼저 나오면 무시됨
-    if current_entry[-1] == "(": return     # 괄호를 열자마자 닫으면 무시됨
+    if current_entry == "": return                                  # 비어있는데 닫히면 무시됨
+    if current_entry.count("(") <= current_entry.count(")"): return # 열린적도 없는데 닫는게 먼저 나오면 무시됨
+    if current_entry[-1] == "(": return                             # 괄호를 열자마자 닫으면 무시됨
     display_entry.insert(END, ")")
     
 def backspace(event):    # It's created to handle the scenario where the entry widget loses focus.
@@ -51,21 +51,11 @@ def set_window_focus(event):      # display_entry 포커스시 강제 포커스�
 
 #### Inheritance functions ####
 
-def allowed_keys_input(user_input:str) -> bool:        # Check unauthorized keyboard custom input
-    for char in user_input:
-        if char not in ALLOWED_CHARS:
-            return False 
-    return True
-
-def find_last_ops_index(user_input:str) -> int:        # Used as an inheritance function
+def find_last_ops_index(user_input:str) -> int:        # Used as an inheritance function : #! += 버튼에만 종속됨. 내부화 고려.
     last_ops_index = 0
-    chars = list("/-+*&()")
-    replace = list(user_input)
-    for c in replace:
-        if c in chars:
-            if replace.index(c) > last_ops_index:
-                last_ops_index = replace.index(c)
-                replace[replace.index(c)] = "removed"
+    for i in range(len(user_input)):        #! 연산자 찾기 코드 리팩토링, 디버깅 25-04-22
+        if user_input[i] in "/-+*%()":
+            last_ops_index = i
     return last_ops_index
 
 def update_input_ready_status(func=False) -> None:      # first_input trigger switching method. 
@@ -74,11 +64,7 @@ def update_input_ready_status(func=False) -> None:      # first_input trigger sw
         Prepare_for_New_input = True
     else:
         Prepare_for_New_input = False 
-            
-def invalid_formula_length(formula:str) -> bool:        # Check if the formula exceeds the allowed length limit
-    if len(formula) > INPUT_LIMIT: return True
-    return False
-
+  
 def error_display(errmsg: str = "ERROR") -> None:    # Display a message in the entry, disable the button, and restore it after 3 seconds.    
     def disable_button(): equals_button.config(bg="red", state=DISABLED)
     def restore_button(): equals_button.config(bg=COLORS[1], fg=COLORS[3], state=NORMAL)
@@ -137,7 +123,7 @@ def number_input(num):
     
 def operator_button(operator):
     content = display_entry.get()
-    if operator in "+*/%" and content == "": return     # DEBUG: 비어있는상태에선 시작할 수 없음 25-04-21
+    if operator in "+*/%" and content == "": return     # DEBUG: 비어있는상태에선 연산자로 시작할 수 없음(-제외) 25-04-21
     if content == "-":  # DEBUG: - 기호만 입력된 상태에서 연산자를 다시 누르는것을 허용하지 않음 25-04-22
         if operator == "-":             # 단항 '-' 입력된 상태에서 다시 입력시 제거
             display_entry.delete(0, END)
@@ -208,7 +194,6 @@ def signchange():       # '+-' Button.
         elif current[0] == "-":
             display_entry.delete(0)      
 
-
 # Auto Open/Closing: Algorithm for deciding whether to open or close parentheses when "pressing the corresponding button"            
 def parentheses():      # '( )' Bottn.
     update_input_ready_status()
@@ -236,11 +221,12 @@ def equals():       # '=' Button.
     # make and init user_formula and user_formula result.    
     user_formula:str = AdjustFormula(display_entry.get()).get_standard_fix()        # Adjustments for various formula errors 25-04-21
     user_formula_result:float = 0.0
-            
-    # Error handling:
-    try:
-        if not allowed_keys_input(user_formula): raise ValueError("Unauthorized input")
-        if invalid_formula_length(user_formula): raise ValueError("Out of range")         
+          
+    # Error handling:   #! 리팩토링: equals()에서만 다뤄지는 간단한 함수 모두 삭제 :25-04-22
+    try:    
+        for c in user_formula:  # 허용되지 않은 문자입력시 (현재는 쓰일일은 없으나 유지.)
+            if c not in ALLOWED_CHARS: raise ValueError("Unauthorized input")
+        if len(user_formula) > INPUT_LIMIT: raise ValueError("Out of range") # 최대 입력문자 한계 초과
         
     except ValueError as e:
         # print(f"ERR: err = {str(e)}, user_formula = {user_formula}, user_formula_result = {user_formula_result}")       #! TEST DEBUG CODE
@@ -256,7 +242,6 @@ def equals():       # '=' Button.
         errmsg = (f"Failed read formula: {user_formula}")
         window.after(0, lambda: error_display(errmsg= errmsg))
         return
-    
     
     update_input_ready_status(True)             # This trigger will clear display if you click number after calc.
 
