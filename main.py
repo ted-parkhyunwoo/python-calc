@@ -189,13 +189,12 @@ def equals():       # '=' Button.
     # Error handling:
     try:
         if not allowed_keys_input(user_formula): raise ValueError("Unauthorized input")
-        if invalid_formula_length(user_formula): raise ValueError("Out of range") 
+        if invalid_formula_length(user_formula): raise ValueError("Out of range")         
         
     except ValueError as e:
-        err:str = str(e)
-        # print(f"DEBUG: user_formula = {user_formula}, user_formula_result = {user_formula_result}")       #! TEST디버그출력
-        if err == "Unauthorized input": window.after(0, lambda: error_display(errmsg= "Unauthorized input"))
-        if err == "Out of range": window.after(0, lambda: error_display(errmsg= f"OUT OF RANGE({len(user_formula)}/{INPUT_LIMIT})"))
+        print(f"ERR: err = {str(e)}, user_formula = {user_formula}, user_formula_result = {user_formula_result}")       #! TEST디버그출력
+        if str(e) == "Unauthorized input": window.after(0, lambda: error_display(errmsg= "Unauthorized input"))
+        if str(e) == "Out of range": window.after(0, lambda: error_display(errmsg= f"OUT OF RANGE({len(user_formula)}/{INPUT_LIMIT})"))
         return
     
     # calculating and fix precision.
