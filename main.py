@@ -2,7 +2,7 @@ from tkinter import *
 from calc import calc
 from adjust_formula import AdjustFormula
 
-# Constant
+#### Constant ####
 OPS = ["*", "/", "+", "-"]
 BUTTON_FONT = "Courier", 25, "bold"
 DISPLAY_FONT = "Courier", 14, "italic"
@@ -10,82 +10,86 @@ COLORS = ["#2C3333", "#395B64", "#A5C9CA", "#E7F6F2"]   #Color set from https://
 ALLOWED_CHARS =list("0123456789./-+*%()")
 INPUT_LIMIT = 30    # user input length limit.
 
-# Global variable
+#### Global variable ####
 Last_Display = ""                  # last history result memory: global로 업데이트됨.
 Prepare_for_New_input = False      # check ready for input trigger: turn on True after equals(). (for clear display if you click number. 결과출력후 새 수식입력시 디스플레이 업데이트용 트리거)
 
 
+#### Treat dispay_entry Funcs: read, write, delete. ####
+
+def get_entry() -> str:                                     return display_entry.get() 
+def insert_entry(idx = 0, string:str = "") -> None:         display_entry.insert(idx, string)
+def push_entry(string:str) -> None:                         display_entry.insert(END, string)
+def remove_entry(startIdx:int = 0, endIdx = END) -> None:   display_entry.delete(startIdx, endIdx);
+#! delete() 는 요소가 한개일때는 한글자만 지우나, remove_entry는 (target, target + 1) 로 지워야함을 반드시 숙지.
+#! 반대로 delete(start, END) 로 start부터 끝까지 지웠으나, remove_entry는 (target) 하면 뒤로 완전히 지워짐.
+
+
 #### Keyboard bind helper functions
 
-def openParentheses():
-    # 열때 직전입력 ')' 면 사이에 '*' 추가
-    if display_entry.get() != "" and display_entry.get()[-1] == ")": display_entry.insert(END, "*(")
-    else: display_entry.insert(END, "(")
+def openParentheses():      # 열때 직전입력 ')' 면 사이에 '*' 추가
+    content = get_entry()
+    if content != "" and content[-1] == ")":    push_entry("*(")
+    else: push_entry("(")
         
 def closeParentheses():
-    current_entry:str = display_entry.get()
-    if current_entry == "": return                                  # 비어있는데 닫히면 무시됨
-    if current_entry.count("(") <= current_entry.count(")"): return # 열린적도 없는데 닫는게 먼저 나오면 무시됨
-    if current_entry[-1] == "(": return                             # 괄호를 열자마자 닫으면 무시됨
-    display_entry.insert(END, ")")
+    content:str = get_entry()
+    if content == "":                               return      # 비어있는데 닫히면 무시됨
+    if content.count("(") <= content.count(")"):    return      # 열린적도 없는데 닫는게 먼저 나오면 무시됨
+    if content[-1] == "(":                          return      # 괄호를 열자마자 닫으면 무시됨
+    push_entry(")")
     
-def backspace(event):    # It's created to handle the scenario where the entry widget loses focus.
-    current = display_entry.get()
-    focus = str(window.focus_get())        #TIP. tkinter focus_get() return your active widget name.
-    if focus != ".!frame.!entry":
-        if len(current) > 0:
-            last_index = len(current) -1
-            display_entry.delete(last_index, END)  
+def backspace(event):       # It's created to handle the scenario where the entry widget loses focus.
+    content = get_entry()
+    focus = str(window.focus_get())         #TIP. tkinter focus_get() return your active widget name.
+    if (focus != ".!frame.!entry") and (len(content)) > 0:
+        last_index = len(content) -1
+        remove_entry(last_index)
 
-def set_window_focus(event):      # display_entry 포커스시 강제 포커스해제, break
+def set_window_focus(event):                # display_entry 포커스시 강제 포커스해제, break
     window.focus_set()            
     key_perssed = event.char
-    # 첫입력은 허용: 숫자, 괄호열기, - 까지도 허용해줘야함. 괄호열기는 함수로 관리해서 안적어도됨
-    if display_entry.get() == "":
-        if key_perssed in "0123456789":
-            number_input(key_perssed)
-        if key_perssed == "-":
-            operator_button(key_perssed)
+    if get_entry() == "":                   # 첫입력은 허용: 숫자, 괄호열기, - 까지도 허용.
+        if key_perssed in "0123456789":     number_input(key_perssed)
+        if key_perssed == "-":              operator_button(key_perssed)
     return "break"
 
 
 #### Inheritance functions ####
 
-def find_last_ops_index(user_input:str) -> int:        # Used as an inheritance function : #! += 버튼에만 종속됨. 내부화 고려.
+def find_last_ops_index(user_input:str) -> int:     # Used as an inheritance function : #! += 버튼에만 종속됨. 내부화 고려.
     last_ops_index = 0
-    for i in range(len(user_input)):        #! 연산자 찾기 코드 리팩토링, 디버깅 25-04-22
-        if user_input[i] in "/-+*%()":
-            last_ops_index = i
+    for i in range(len(user_input)):                #! 연산자 찾기 코드 리팩토링, 디버깅 25-04-22
+        if user_input[i] in "/-+*%()":              last_ops_index = i
     return last_ops_index
 
-def update_input_ready_status(func=False) -> None:      # first_input trigger switching method. 
+def update_input_ready_status(func=False) -> None:  # first_input trigger switching method. 
     global Prepare_for_New_input   
-    if func == True:
-        Prepare_for_New_input = True
-    else:
-        Prepare_for_New_input = False 
+    if func == True:                Prepare_for_New_input = True
+    else:                           Prepare_for_New_input = False 
   
 def error_display(errmsg: str = "ERROR") -> None:    # Display a message in the entry, disable the button, and restore it after 3 seconds.    
-    def disable_button(): equals_button.config(bg="red", state=DISABLED)
-    def restore_button(): equals_button.config(bg=COLORS[1], fg=COLORS[3], state=NORMAL)
-    def clear_display(): display_entry.delete(0, END)
+    def disable_button():   equals_button.config(bg="red", state=DISABLED)
+    def restore_button():   equals_button.config(bg=COLORS[1], fg=COLORS[3], state=NORMAL)
+    def clear_display():    remove_entry()
     
     disable_button()
     clear_display()
-    display_entry.insert(0, errmsg)
+    insert_entry(0, errmsg)
     window.after(3000, lambda: (restore_button(), clear_display())) # tip: windows에 전달할 함수가 복수라면 람다를 사용
 
-def adjust_precision(result: float) -> float:           # 정밀도 보정함수 : 25-04-20
-    if result == int(result): result = int(result)      # 정수로 변환 가능한 경우 정수로 변환
-    else: result = round(result, 13)                    # 소수점 이하 13자리까지 반올림
-
-    if abs(result - int(round(result))) < 0.000_000_000_001:    
-        result = int(round(result))                 # 매우 작은 오차 보정 (결과값이 정수에 가까운 경우 정수로 변환)
+def adjust_precision(result: float) -> float:                   # 정밀도 보정함수 : 25-04-20
+    if result == int(result):   result = int(result)            # 정수로 변환 가능한 경우 정수로 변환
+    else:                       result = round(result, 13)      # 소수점 이하 13자리까지 반올림
+    
+    if abs(result - int(round(result))) < 0.000_000_000_001:    # 매우 작은 오차 보정(정수 반올림)
+        result = int(round(result))                 
     return result                
                 
-def update_recent_labels(formula:str, result:str) -> None:      # Update recent labels and Update display_entry(except input just "=") : 25-04-21
-    display_entry.delete(0, END)
-    display_entry.insert(0, str(result))
+def update_recent_labels(formula:str, result:str) -> None:      
+    # Update recent labels and Update display_entry(except input just "=") : 25-04-21
+    remove_entry()
+    insert_entry(0, result)
     
     global Last_Display 
     # Extract the last result from Last_Display.
@@ -108,130 +112,119 @@ def update_recent_labels(formula:str, result:str) -> None:      # Update recent 
 #### Button functions ####
 
 ## Number (0~9) and Operators (*, /, +, -, %) ##
-def insert_mul_operator_after_parentheses_closed():   # Auto insert "*" after ")" - Used as an inheritance function
-    current = display_entry.get()
-    if current != "":
-        if current[-1] == ")":
-            display_entry.insert(END, "*")
             
-def number_input(num):
-    insert_mul_operator_after_parentheses_closed() 
-    if Prepare_for_New_input:
-        display_entry.delete(0, END)      
-    update_input_ready_status()    #Trigger make False.
-    display_entry.insert(END, num)
+def number_input(num:str):
+    content = get_entry()
+    if content != "" and content[-1] == ")":    push_entry("*")    # Auto insert "*" after ")"
+    if Prepare_for_New_input:                   remove_entry()
+    update_input_ready_status()                 #Trigger make False.
+    push_entry(num)
     
 def operator_button(operator):
-    content = display_entry.get()
-    if operator in "+*/%" and content == "": return     # DEBUG: 비어있는상태에선 연산자로 시작할 수 없음(-제외) 25-04-21
-    if content == "-":  # DEBUG: - 기호만 입력된 상태에서 연산자를 다시 누르는것을 허용하지 않음 25-04-22
-        if operator == "-":             # 단항 '-' 입력된 상태에서 다시 입력시 제거
-            display_entry.delete(0, END)
-            return
-        else: return       
+    content = get_entry()
+    if content != "" and content[-1] == "%" and operator == "%": return     #! DEBUG: % 연속입력 금지 (25-04-22)
+    if operator in "+*/%" and content == "":    return     # DEBUG: 비어있는상태에선 연산자로 시작할 수 없음(-제외) 25-04-21
+    if content == "-":                  # DEBUG: - 기호만 입력된 상태에서 연산자를 다시 누르는것을 허용하지 않음 25-04-22
+        if operator == "-":                     remove_entry()            # 단항 '-' 입력된 상태에서 다시 입력시 제거
+        return   
 
-    if len(content) > 0:            # 연산자 연속입력시 최근입력된 연산자만 사용 기능 내부화 25-04-22
-        if content[-1] in OPS:
-            last_index = len(content) -1
-            display_entry.delete(last_index, END)   
+    if len(content) > 0 and content[-1] in OPS:  # 연산자 연속입력시 최근입력된 연산자만 사용 기능 내부화 25-04-22
+        last_index = len(content) -1
+        remove_entry(last_index) 
             
     update_input_ready_status()
-    display_entry.insert(END, operator)
+    push_entry(operator)
     
     
 ## Function keys    (., C, +-, (), =) ##
 def point():  # '.' Button
     content = display_entry.get()
-    if content == "": return        # 비어있으면 입력금지
-    if content[-1] in OPS: return   # 앞에 연산자이면 입력금지
+    if content == "" or content[-1] in OPS:     return   # 비어있으면 입력금지, 직전입력 연산자이면 입력금지
     
     # 뒤에서부터 탐색하여 마지막 연산자 이후의 숫자를 가져옴 (연산자, 비어있는기준 마지막 입력된 숫자 파싱)
     last_number = ""
     for char in reversed(content):
-        if char in OPS: break
-        last_number = char + last_number  #! 숫자를 앞에 추가 (reversed 된걸 다시 거꾸로 추가함)
-    if "." in last_number: return   # 마지막 숫자에 이미 '.'이 포함되어 있으면 입력 차단
+        if char in OPS:                         break
+        last_number = char + last_number        #! 숫자를 앞에 추가 (reversed 된걸 다시 거꾸로 추가함)
+        
+    if "." in last_number:                      return   # 마지막 숫자에 이미 '.'이 포함되어 있으면 입력 차단
     update_input_ready_status()
-    display_entry.insert(END, ".")
+    push_entry(".")
     
 def clear():    # 'C' Button
     window.focus_set()
     update_input_ready_status()
-    display_entry.delete(0, END)
+    remove_entry()
 
 # signchange() function turns the input into negative or positive based on various conditions. 
-# The content isn't really important. I just kept debugging until it worked as wished.    
+# The content isn't really important. I just kept debugging until it worked as wished.
+#! TODO: 간소화 리펙토링 필요  
 def signchange():       # '+-' Button.
     update_input_ready_status()
-    current = display_entry.get()
-    if current == "" or current == '0': return      # DEBUG: clicked with empty or 0   (25-04-20)
-    last_index = find_last_ops_index(current)    
+    content = get_entry()
+    if content == "" or content == '0': return      # DEBUG: clicked with empty or 0   (25-04-20)
+    last_index = find_last_ops_index(content)    
     
-    if len(current) > 0 and len(current)-1 != last_index and last_index > 0:      
+    if len(content) > 0 and len(content)-1 != last_index and last_index > 0:      
         if last_index > 0:
-            if current[last_index] == "*":
-                display_entry.insert(last_index + 1, "(-")
-            elif current[last_index] == "-":
-                display_entry.delete(last_index)
-                display_entry.insert(last_index, "+")
-            elif current[last_index] == "+":
-                display_entry.delete(last_index)
-                display_entry.insert(last_index, "-")   
-            elif current[last_index] == "(":
-                display_entry.insert(last_index + 1, "-")
-    elif len(current)-1 == last_index and last_index > 0:
-        if current[last_index] == "-":
-            display_entry.delete(last_index)
-            display_entry.insert(last_index, "+")
-        elif current[last_index] == "(":
-            display_entry.insert(last_index + 1, "-")    
+            if content[last_index] == "*": 
+                insert_entry(last_index + 1, "(-")
+            elif content[last_index] == "-": 
+                remove_entry(last_index, last_index + 1)
+                insert_entry(last_index, "+")
+            elif content[last_index] == "+":
+                remove_entry(last_index, last_index + 1)
+                insert_entry(last_index, "-") 
+            elif content[last_index] == "(":
+                insert_entry(last_index + 1, "-")
+    elif len(content)-1 == last_index and last_index > 0:
+        if content[last_index] == "-":
+            remove_entry(last_index, last_index + 1)
+            insert_entry(last_index, "+")
+        elif content[last_index] == "(":
+            insert_entry(last_index + 1, "-")  
         else:
-            display_entry.delete(last_index)
-            display_entry.insert(last_index, "-")                                  
+            remove_entry(last_index, last_index + 1)
+            insert_entry(last_index, "-")                                
     else:
-        if current[0] != "-":
-            display_entry.insert(0, "-")
-        elif current[0] == "-":
-            display_entry.delete(0)      
+        if content[0] != "-":
+            insert_entry(0, "-")
+        elif content[0] == "-":
+            remove_entry(0, 1)
 
 # Auto Open/Closing: Algorithm for deciding whether to open or close parentheses when "pressing the corresponding button"            
 def parentheses():      # '( )' Bottn.
     update_input_ready_status()
-    current = display_entry.get()
-    left = current.count("(")
-    right = current.count(")")
-    if current == "":
-        display_entry.insert(END, "(")
-    elif current[-1] == "(":
-        display_entry.insert(END, "(")
-    elif current[-1] in OPS:
-        display_entry.insert(END, "(")
-    elif left > right:
-        display_entry.insert(END, ")")
+    content = get_entry()
+    left = content.count("(")
+    right = content.count(")")
+    if content == "":           push_entry("(")
+    elif content[-1] == "(":    push_entry("(")
+    elif content[-1] in OPS:    push_entry("(")
+    elif left > right:          push_entry(")")
     elif left == right:
-        if current[-1] in OPS:    
-            display_entry.insert(END, "(")    
-        else:
-            display_entry.insert(END, "*(")     # Auto Multiplication insert.
-    else:
-        display_entry.insert(END, "error")
+        if content[-1] in OPS:  push_entry("(") 
+        else:                   push_entry("*(")
+    else:                       push_entry("error")
 
 def equals():       # '=' Button.
     window.focus_set()    
     # make and init user_formula and user_formula result.    
-    user_formula:str = AdjustFormula(display_entry.get()).get_standard_fix()        # Adjustments for various formula errors 25-04-21
+    user_formula:str = AdjustFormula(get_entry()).get_standard_fix()        # Adjustments for various formula errors 25-04-21
     user_formula_result:float = 0.0
           
     # Error handling:   #! 리팩토링: equals()에서만 다뤄지는 간단한 함수 모두 삭제 :25-04-22
     try:    
         for c in user_formula:  # 허용되지 않은 문자입력시 (현재는 쓰일일은 없으나 유지.)
-            if c not in ALLOWED_CHARS: raise ValueError("Unauthorized input")
-        if len(user_formula) > INPUT_LIMIT: raise ValueError("Out of range") # 최대 입력문자 한계 초과
+            if c not in ALLOWED_CHARS:          raise ValueError("Unauthorized input")
+        if len(user_formula) > INPUT_LIMIT:     raise ValueError("Out of range") # 최대 입력문자 한계 초과
         
     except ValueError as e:
         # print(f"ERR: err = {str(e)}, user_formula = {user_formula}, user_formula_result = {user_formula_result}")       #! TEST DEBUG CODE
-        if str(e) == "Unauthorized input": window.after(0, lambda: error_display(errmsg= "Unauthorized input"))
-        if str(e) == "Out of range": window.after(0, lambda: error_display(errmsg= f"OUT OF RANGE({len(user_formula)}/{INPUT_LIMIT})"))
+        if str(e) == "Unauthorized input": 
+            window.after(0,     lambda: error_display(errmsg= "Unauthorized input"))
+        if str(e) == "Out of range": 
+            window.after(0,     lambda: error_display(errmsg= f"OUT OF RANGE({len(user_formula)}/{INPUT_LIMIT})"))
         return
     
     # print(f"DEBUG: {user_formula}")       #! TEST DEBUG CODE
@@ -240,7 +233,7 @@ def equals():       # '=' Button.
         user_formula_result = adjust_precision(calc(user_formula))     # 정밀도 보정 함수 적용 (25-04-20)
     except:
         errmsg = (f"Failed read formula: {user_formula}")
-        window.after(0, lambda: error_display(errmsg= errmsg))
+        window.after(0,         lambda: error_display(errmsg= errmsg))
         return
     
     update_input_ready_status(True)             # This trigger will clear display if you click number after calc.
@@ -277,8 +270,7 @@ button_frame = Frame(window)
 button_frame.grid(column=0, row=2)
 
 color_types = {"normal": (3, 0), "equal": (1, 3), "operator": (2, 3),}     # COLORS Index.
-buttons = [     
-    #(text, row, col, command, color_type)
+buttons = [         #(text, row, col, command, color_type)
     # ROW 0
     ("C",   0, 0, clear,                        "equal"),
     ("( )", 0, 1, parentheses,                  "operator"),
@@ -308,7 +300,9 @@ buttons = [
 
 for text, row, col, cmd, color_type in buttons:
     bg_idx, fg_idx = color_types[color_type]
-    btn = Button( button_frame, text=text, font=BUTTON_FONT, width=3, height=1, highlightthickness=0, command=cmd, bg=COLORS[bg_idx], fg=COLORS[fg_idx],)
+    btn = Button( button_frame, text=text, font=BUTTON_FONT, 
+                 width=3, height=1, highlightthickness=0, 
+                 command=cmd, bg=COLORS[bg_idx], fg=COLORS[fg_idx],)
     btn.grid(column=col, row=row)
     
     if text == "=":     # eqauls_button 은 에러 발생 등 색상 변경과 잠시 비활성화 해야 하기 때문에 글로벌 변수로 지정 
@@ -319,16 +313,16 @@ for text, row, col, cmd, color_type in buttons:
 #### Bind keyboard  - Button input is preferred. Only some function keys are bound to the keyboard. ####
 
 # number and operator keys bind.
-for n in "0123456789": window.bind(n, lambda event, n = n: number_input(num=n))
-for o in "+-*/%": window.bind(o, lambda event, o = o: operator_button(operator=o))
+for n in "0123456789":  window.bind(n, lambda event, n = n: number_input(num=n))
+for o in "+-*/%":       window.bind(o, lambda event, o = o: operator_button(operator=o))
 
 # function keys bind.
-window.bind(".", lambda event: point())
-window.bind("<Return>", lambda event: equals())     # enter
-window.bind("<Escape>", lambda event: clear())      # esc
-window.bind("(", lambda event: openParentheses())
-window.bind(")", lambda event: closeParentheses())
-window.bind("<BackSpace>", backspace)               # backspace
+window.bind(".",        lambda event:   point())
+window.bind("<Return>", lambda event:   equals())     # enter
+window.bind("<Escape>", lambda event:   clear())      # esc
+window.bind("(",        lambda event:   openParentheses())
+window.bind(")",        lambda event:   closeParentheses())
+window.bind("<BackSpace>",              backspace)               # backspace
 
 # deactive display_entry focus bind.(every key event on display_entry -> set_window_focus(): window.focus_set())
 display_entry.bind("<Key>", set_window_focus)
