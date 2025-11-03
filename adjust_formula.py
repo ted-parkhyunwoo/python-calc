@@ -2,7 +2,10 @@ OPS = ["*", "/", "+", "-"]
 
 #! TODO: 05 + 2 등 입력시 5 + 2 등으로 수정하는 기능 필요 (calc.py 단에서 수정해야할지, 숫자버튼에서 비어있는 상태 혹은 연산자 뒤 0이 선입력인지 고려할 것. 예: 비어있는상태 or 연산자, 괄호 뒤 등에 0 입력후 다른숫자 입력시: 05-> 5로 변경 필요)
 
-#! 모든 멤버함수들은 생성자에서 초기화한 formula를 void함수처럼 수정하지만, str타입으로 formula를 리턴하기도 한다.
+''' NOTE: 
+Each member function mutates the internal 'formula' field in-place
+and returns the updated formula as a string. (mutator-returning function)
+'''
 class AdjustFormula:
     def __init__(self, formula:str = ""):
         self.formula:str = formula

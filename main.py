@@ -15,8 +15,8 @@ COLORS:list         = ["#2C3333", "#395B64", "#A5C9CA", "#E7F6F2"]   #Color set 
 
 #### Globally accessible variables ####
 
-Last_Display:str = ""               # last history result memory: globally update.
-Prepare_For_New_Input:bool = False  # check ready for input trigger: turn on True after equals(). (clear display after result print if you click number)
+g_last_display:str = ""               # last history result memory: globally update.
+g_prepare_for_new_input:bool = False  # check ready for input trigger: turn on True after equals(). (clear display after result print if you click number)
 
 
 #### Global Functions: Treat dispay_entry Funcs: read, write, delete ####
@@ -24,7 +24,7 @@ Prepare_For_New_Input:bool = False  # check ready for input trigger: turn on Tru
 def get_entry() -> str:                                     return display_entry.get() 
 def insert_entry(idx = 0, string:str = "") -> None:         display_entry.insert(idx, string)
 def push_entry(string:str) -> None:                         display_entry.insert(END, string)
-def remove_entry(startIdx:int = 0, endIdx:int | str = END) -> None:   display_entry.delete(startIdx, endIdx);
+def remove_entry(start_index:int = 0, end_index: int | str = END) -> None:   display_entry.delete(start_index, end_index);
 ''' Note 
 delete() 는 요소가 한개일때는 한글자만 지우나, remove_entry는 (target, target + 1) 로 지워야함을 반드시 숙지.
 반대로 delete(start, END) 로 start부터 끝까지 지웠으나, remove_entry는 (target) 하면 뒤로 완전히 지워짐.
@@ -33,12 +33,12 @@ delete() 는 요소가 한개일때는 한글자만 지우나, remove_entry는 (
 
 #### Keyboard bind helper functions
 
-def openParentheses():      # 열때 직전입력 ')' 면 사이에 '*' 추가
+def open_parentheses():      # 열때 직전입력 ')' 면 사이에 '*' 추가
     content:str = get_entry()
     if content != "" and content[-1] == ")":    push_entry("*(")
     else: push_entry("(")
         
-def closeParentheses():
+def close_parentheses():
     content:str = get_entry()
     if content == "":                               return      # ignore close if entry is empty
     if content.count("(") <= content.count(")"):    return      # ignore close if not openned
@@ -70,9 +70,9 @@ def find_last_ops_index(user_input:str) -> int:     # Used as an inheritance fun
     return last_ops_index
 
 def update_input_ready_status(func=False) -> None:  # first_input trigger switching method. 
-    global Prepare_For_New_Input   
-    if func == True:                Prepare_For_New_Input = True
-    else:                           Prepare_For_New_Input = False 
+    global g_prepare_for_new_input
+    if func:        g_prepare_for_new_input = True
+    else:           g_prepare_for_new_input = False
   
 def error_display(errmsg: str = "ERROR") -> None:    # Display a message in the entry, disable the button, and restore it after 3 seconds.    
     def disable_button():   equals_button.config(bg="red", state=DISABLED)
@@ -97,27 +97,27 @@ def update_recent_labels(formula:str, result:float) -> None:
     remove_entry()
     insert_entry(0, str(result))
     
-    global Last_Display
+    global g_last_display
     # Extract the last result from Last_Display.
-    Last_Display_result:str
+    last_display_result:str
 
-    if "=" in str(Last_Display): Last_Display_result = Last_Display.split('=')[-1]       
-    else: Last_Display_result = Last_Display  
+    if "=" in str(g_last_display): last_display_result = g_last_display.split('=')[-1]
+    else: last_display_result = g_last_display
     
     #! debug: 아무 입력 없이 = 호출할 때 3자리 미만 숫자만 갱신 막는 것을 해결(쉼표,처리 제거) : 25-11-02
-    Last_Display_result = Last_Display_result.replace(",", "")    
+    last_display_result = last_display_result.replace(",", "")
     
-    Old_Display:str = Last_Display
-    Last_Display = (f"{formula}={result:,}")  #for update recent label.
+    old_display:str = g_last_display
+    g_last_display = f"{formula}={result:,}"  #for update recent label.
         
-    if len(Last_Display) >= 40: Last_Display = f"{result:,}"    # Last_Display is just result if that is longer than 40 chars
+    if len(g_last_display) >= 40: g_last_display = f"{result:,}"    # Last_Display is just result if that is longer than 40 chars
         
-    if Last_Display_result != formula:
+    if last_display_result != formula:
         if recent_label_1["text"] == "":
-            recent_label_1.config(text=Last_Display)
+            recent_label_1.config(text=g_last_display)
         else:
-            recent_label_2.config(text=Old_Display)
-            recent_label_1.config(text=Last_Display)         
+            recent_label_2.config(text=old_display)
+            recent_label_1.config(text=g_last_display)
                 
                 
 #### Button functions ####
@@ -127,7 +127,7 @@ def update_recent_labels(formula:str, result:float) -> None:
 def number_input(num:str):
     content:str = get_entry()
     if content != "" and content[-1] == ")":    push_entry("*")    # Auto insert "*" after ")"
-    if Prepare_For_New_Input:                   remove_entry()
+    if g_prepare_for_new_input:                   remove_entry()
     update_input_ready_status()                 #Trigger make False.
     push_entry(num)
     
@@ -246,7 +246,7 @@ def equals():
     except:
         if user_formula == "":
             user_formula = "EMPTY"    #! 수식 문자열이 비어있음을 경고
-        errmsg:str = (f"Failed read formula: {user_formula}")
+        errmsg:str = f"Failed read formula: {user_formula}"
         window.after(0,         lambda: error_display(errmsg= errmsg))
         return
     
@@ -335,8 +335,8 @@ for o in "+-*/%":       window.bind(o, lambda event, o = o: operator_button(oper
 window.bind(".",        lambda event:   point())
 window.bind("<Return>", lambda event:   equals())     # enter
 window.bind("<Escape>", lambda event:   clear())      # esc
-window.bind("(",        lambda event:   openParentheses())
-window.bind(")",        lambda event:   closeParentheses())
+window.bind("(", lambda event:   open_parentheses())
+window.bind(")", lambda event:   close_parentheses())
 window.bind("<BackSpace>",              backspace)               # backspace
 
 # deactive display_entry focus bind.(every key event on display_entry -> set_window_focus(): window.focus_set())
