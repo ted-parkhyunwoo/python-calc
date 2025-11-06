@@ -1,4 +1,4 @@
-from tkinter import Tk, Frame, Label, Button, Entry, END, RIGHT, DISABLED, NORMAL
+from tkinter import Tk, Frame, Label, Button, Entry
 from calc import calc
 from adjust_formula import AdjustFormula
 
@@ -23,11 +23,11 @@ g_prepare_for_new_input:bool = False  # check ready for input trigger: turn on T
 
 def get_entry() -> str:                                     return display_entry.get() 
 def insert_entry(idx = 0, string:str = "") -> None:         display_entry.insert(idx, string)
-def push_entry(string:str) -> None:                         display_entry.insert(END, string)
-def remove_entry(start_index:int = 0, end_index: int | str = END) -> None:   display_entry.delete(start_index, end_index);
+def push_entry(string:str) -> None:                         display_entry.insert("end", string)
+def remove_entry(start_index:int = 0, end_index: int | str = "end") -> None:   display_entry.delete(start_index, end_index);
 ''' Note 
 delete() 는 요소가 한개일때는 한글자만 지우나, remove_entry는 (target, target + 1) 로 지워야함을 반드시 숙지.
-반대로 delete(start, END) 로 start부터 끝까지 지웠으나, remove_entry는 (target) 하면 뒤로 완전히 지워짐.
+반대로 delete(start, "end") 로 start부터 끝까지 지웠으나, remove_entry는 (target) 하면 뒤로 완전히 지워짐.
 '''
 
 
@@ -75,8 +75,8 @@ def update_input_ready_status(func=False) -> None:  # first_input trigger switch
     else:           g_prepare_for_new_input = False
   
 def error_display(errmsg: str = "ERROR") -> None:    # Display a message in the entry, disable the button, and restore it after 3 seconds.    
-    def disable_button():   equals_button.config(bg="red", state=DISABLED)
-    def restore_button():   equals_button.config(bg=COLORS[1], fg=COLORS[3], state=NORMAL)
+    def disable_button():   equals_button.config(bg="red", state="disabled")
+    def restore_button():   equals_button.config(bg=COLORS[1], fg=COLORS[3], state="normal")
     def clear_display():    remove_entry()
     
     disable_button()
@@ -272,7 +272,7 @@ recent_label_2.grid(column=0, row=1, sticky='e')
 recent_label_1 = Label(display_frame, text="", bg=COLORS[0], fg=COLORS[3])
 recent_label_1.grid(column=0, row=2, sticky="e")
 ## Display Entry ##
-display_entry = Entry(display_frame, justify=RIGHT, width=24, highlightthickness=0, font=DISPLAY_FONT, bg=COLORS[2], fg=COLORS[0])
+display_entry = Entry(display_frame, justify="right", width=24, highlightthickness=0, font=DISPLAY_FONT, bg=COLORS[2], fg=COLORS[0])
 # display_entry.focus()
 display_entry.grid(column=0, row=3)
 
@@ -320,7 +320,7 @@ for text, row, col, cmd, color_type in buttons:
                  command=cmd, bg=COLORS[bg_idx], fg=COLORS[fg_idx],)
     btn.grid(column=col, row=row)
     
-    if text == "=":     # eqauls_button 은 에러 발생 등 색상 변경과 잠시 비활성화 해야 하기 때문에 글로벌 변수로 지정 
+    if text == "=":     # eqauls_button 은 에러 발생 등 색상 변경과 잠시 비활성화 해야 하기 때문에 글로벌 변수로 지정(의미있는 행동인지 검토)
         global equals_button
         equals_button = btn
         
