@@ -47,10 +47,10 @@ class AdjustFormula:
     
     def close_unmatched_parentheses(self) -> str:
         # Automatically close any unclosed parentheses in the formula
-        openedParentheses = self.formula.count("(")
-        closedParentheses = self.formula.count(")")
-        if openedParentheses > closedParentheses:
-            for _ in range(openedParentheses-closedParentheses):
+        opened_parentheses = self.formula.count("(")
+        closed_parentheses = self.formula.count(")")
+        if opened_parentheses > closed_parentheses:
+            for _ in range(opened_parentheses-closed_parentheses):
                 self.formula += ")"    
         return self.formula
 

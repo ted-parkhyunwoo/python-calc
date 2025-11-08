@@ -2,25 +2,29 @@ from tkinter import Tk, Frame, Label, Button, Entry
 from calc import calc
 from adjust_formula import AdjustFormula
 
-#### Globally defined constants ####
+# TODO signchange 를 이전의 입력숫자만 (- 로 처리하도록 고려: (- 이런식으로 식이 작성된 경우, 연산자 변경시 (%, %* 식으로 되는것을 막을것)
 
-OPS:list            = ["*", "/", "+", "-"]
-ALLOWED_CHARS:list  = list("0123456789./-+*%()")
-INPUT_LIMIT:int     = 30    # user input length limit.
-# for design
+#### Constants for Design (You can fix) ####
+COLORS:list         = ["#2C3333", "#395B64", "#A5C9CA", "#E7F6F2"]   #Color set from https://colorhunt.co/palette/2c3333395b64a5c9cae7f6f2
 BUTTON_FONT:tuple   = ("Courier", 25, "bold")
 DISPLAY_FONT:tuple  = ("Courier", 14, "italic")
-COLORS:list         = ["#2C3333", "#395B64", "#A5C9CA", "#E7F6F2"]   #Color set from https://colorhunt.co/palette/2c3333395b64a5c9cae7f6f2
+BUTTON_WIDTH:int = 2
+BUTTON_HEIGHT:int = 1
+DISPLAY_WIDTH:int = 24
+
+
+#### Globally defined constants ####
+OPS:list            = ["*", "/", "+", "-", "%"]
+ALLOWED_CHARS:list  = list("0123456789./-+*%()")
+INPUT_LIMIT:int     = 30    # user input length limit.
 
 
 #### Globally accessible variables ####
-
 g_last_display:str = ""               # last history result memory: globally update.
-g_prepare_for_new_input:bool = False  # check ready for input trigger: turn on True after equals(). (clear display after result print if you click number)
+g_prepare_for_new_input:bool = False  # check ready for input trigger: turn on True after equals(). (clear_button display after result print if you click number)
 
 
 #### Global Functions: Treat dispay_entry Funcs: read, write, delete ####
-
 def get_entry() -> str:                                     return display_entry.get() 
 def insert_entry(idx = 0, string:str = "") -> None:         display_entry.insert(idx, string)
 def push_entry(string:str) -> None:                         display_entry.insert("end", string)
@@ -56,7 +60,7 @@ def set_window_focus(event):                # display_entry 포커스시 강제 
     window.focus_set()
     key_perssed:str = event.char
     if get_entry() == "":                   # 첫입력은 허용: 숫자, - 까지도 허용. (괄호열기는 이미 처리됨)
-        if key_perssed in "0123456789":     number_input(key_perssed)
+        if key_perssed in "0123456789":     number_button(key_perssed)
         if key_perssed == "-":              operator_button(key_perssed)
     return "break"
 
@@ -118,21 +122,22 @@ def update_recent_labels(formula:str, result:float) -> None:
         else:
             recent_label_2.config(text=old_display)
             recent_label_1.config(text=g_last_display)
-                
-                
+
+
 #### Button functions ####
 
 ## Number (0~9) and Operators (*, /, +, -, %) ##
 
-def number_input(num:str):
+def number_button(num:str):
     content:str = get_entry()
     if content != "" and content[-1] == ")":    push_entry("*")    # Auto insert "*" after ")"
     if g_prepare_for_new_input:                   remove_entry()
     update_input_ready_status()                 #Trigger make False.
     push_entry(num)
-    
+
 def operator_button(operator):
     content:str = get_entry()
+    if content != "" and content[-1] == "(" and operator!= "-" : return     #! DEBUG: 괄호 뒤 연산자 입력차단 (25-11-09)
     if content != "" and content[-1] == "%" and operator == "%": return     #! DEBUG: % 연속입력 금지 (25-04-22)
     if operator in "+*/%" and content == "":    return     # DEBUG: 비어있는상태에선 연산자로 시작할 수 없음(-제외) 25-04-21
     if content == "-":                  # DEBUG: - 기호만 입력된 상태에서 연산자를 다시 누르는것을 허용하지 않음 25-04-22
@@ -145,10 +150,11 @@ def operator_button(operator):
             
     update_input_ready_status()
     push_entry(operator)
-    
-    
+
+
 ## Special Action Buttons    (., C, +-, (), =) ##
-def point():  # '.' Button
+
+def point_button():  # '.' Button
     content:str = display_entry.get()
     if content == "" or content[-1] in OPS:     return   # 비어있으면 입력금지, 직전입력 연산자이면 입력금지
     
@@ -162,15 +168,15 @@ def point():  # '.' Button
     update_input_ready_status()
     push_entry(".")
     
-def clear():    # 'C' Button
+def clear_button():    # 'C' Button
     window.focus_set()
     update_input_ready_status()
     remove_entry()
 
-# signchange() function turns the input into negative or positive based on various conditions. 
+# signchange_button() function turns the input into negative or positive based on various conditions.
 # The content isn't really important. I just kept debugging until it worked as wished.
 #! TODO: 간소화 리펙토링 필요  
-def signchange():       # '+-' Button.
+def signchange_button():       # '+-' Button.
     update_input_ready_status()
     content:str = get_entry()
     if content == "" or content == '0': return      # DEBUG: clicked with empty or 0   (25-04-20)
@@ -203,8 +209,8 @@ def signchange():       # '+-' Button.
         elif content[0] == "-":
             remove_entry(0, 1)
 
-# Auto Open/Closing: Algorithm for deciding whether to open or close parentheses when "pressing the corresponding button"            
-def parentheses():      # '( )' Bottn.
+# Auto Open/Closing: Algorithm for deciding whether to open or close parentheses_button when "pressing the corresponding button"
+def parentheses_button():      # '( )' Bottn.
     update_input_ready_status()
     content:str = get_entry()
     left:int = content.count("(")
@@ -219,7 +225,7 @@ def parentheses():      # '( )' Bottn.
     else:                       push_entry("error")
 
 # '=' Button
-def equals():       
+def equals():
     window.focus_set()    
     # make and init user_formula and user_formula result.    
     user_formula:str = AdjustFormula(get_entry()).get_standard_fix()        # Adjustments for various formula errors 25-04-21
@@ -250,20 +256,22 @@ def equals():
         window.after(0,         lambda: error_display(errmsg= errmsg))
         return
     
-    update_input_ready_status(True)             # This trigger will clear display if you click number after calc.
+    update_input_ready_status(True)             # This trigger will clear_button display if you click number after calc.
 
     # UI update recent_label 1, 2 and update display_entry
     update_recent_labels(formula=user_formula, result= user_formula_result)     
             
             
 #### UI OBJECTS ####
-## Make Window ##
+
+# Make Window
 window = Tk()
 window.config(padx=15, pady=15, bg=COLORS[0], highlightthickness=0)
 window.title("Python calc")
 
 #### DISPLAY FRAME ####
-## Recent result label ##
+
+# Recent result label
 display_frame = Frame(window)
 display_frame.config(bg=COLORS[0], pady=15, highlightthickness=0)
 display_frame.grid(column=0, row=0)
@@ -271,52 +279,51 @@ recent_label_2 = Label(display_frame, text="", bg=COLORS[0], fg=COLORS[3])
 recent_label_2.grid(column=0, row=1, sticky='e')
 recent_label_1 = Label(display_frame, text="", bg=COLORS[0], fg=COLORS[3])
 recent_label_1.grid(column=0, row=2, sticky="e")
-## Display Entry ##
-display_entry = Entry(display_frame, justify="right", width=24, highlightthickness=0, font=DISPLAY_FONT, bg=COLORS[2], fg=COLORS[0])
-# display_entry.focus()
+
+# Display Entry
+display_entry = Entry(display_frame, justify="right", width=DISPLAY_WIDTH, highlightthickness=0, font=DISPLAY_FONT, bg=COLORS[2], fg=COLORS[0])
 display_entry.grid(column=0, row=3)
 
+
 #### BUTTONS FRAME ####
-button_frame = Frame(window)
-button_frame.grid(column=0,row=2)
-#### BUTTONS FRAME ####
+
 button_frame = Frame(window)
 button_frame.grid(column=0, row=2)
 
 # BUTTONS DESIGN(text, position, function, color)
-color_types = {"normal": (3, 0), "equalClear": (1, 3), "operator": (2, 3),}     # COLORS Index.
+color_types = {"normal": (3, 0), "equalClear": (1, 3), "operator": (2, 3),}     # COLORS Index. (background, forground)
 buttons = [         #(text, row, col, command, color_type)
     # ROW 0
-    ("C",   0, 0, clear,                        "equalClear"),
-    ("( )", 0, 1, parentheses,                  "operator"),
+    ("C", 0, 0, clear_button, "equalClear"),
+    ("( )", 0, 1, parentheses_button, "operator"),
     ("%",   0, 2, lambda: operator_button("%"), "operator"),
     ("/",   0, 3, lambda: operator_button("/"), "operator"),
     # ROW 1
-    ("7",   1, 0, lambda: number_input("7"),    "normal"),
-    ("8",   1, 1, lambda: number_input("8"),    "normal"),
-    ("9",   1, 2, lambda: number_input("9"),    "normal"),
+    ("7", 1, 0, lambda: number_button("7"), "normal"),
+    ("8", 1, 1, lambda: number_button("8"), "normal"),
+    ("9", 1, 2, lambda: number_button("9"), "normal"),
     ("*",   1, 3, lambda: operator_button("*"), "operator"),
     # ROW 2
-    ("4",   2, 0, lambda: number_input("4"),    "normal"),
-    ("5",   2, 1, lambda: number_input("5"),    "normal"),
-    ("6",   2, 2, lambda: number_input("6"),    "normal"),
+    ("4", 2, 0, lambda: number_button("4"), "normal"),
+    ("5", 2, 1, lambda: number_button("5"), "normal"),
+    ("6", 2, 2, lambda: number_button("6"), "normal"),
     ("-",   2, 3, lambda: operator_button("-"), "operator"),
     # ROW 3
-    ("1",   3, 0, lambda: number_input("1"),    "normal"),
-    ("2",   3, 1, lambda: number_input("2"),    "normal"),
-    ("3",   3, 2, lambda: number_input("3"),    "normal"),
+    ("1", 3, 0, lambda: number_button("1"), "normal"),
+    ("2", 3, 1, lambda: number_button("2"), "normal"),
+    ("3", 3, 2, lambda: number_button("3"), "normal"),
     ("+",   3, 3, lambda: operator_button("+"), "operator"),
     # ROW 4
-    ("+/-", 4, 0, signchange,                   "normal"),
-    ("0",   4, 1, lambda: number_input("0"),    "normal"),
-    (".",   4, 2, point,                        "normal"),
+    ("+/-", 4, 0, signchange_button, "normal"),
+    ("0", 4, 1, lambda: number_button("0"), "normal"),
+    (".", 4, 2, point_button, "normal"),
     ("=",   4, 3, equals,                       "equalClear"),
 ]
 
 for text, row, col, cmd, color_type in buttons:
     bg_idx, fg_idx = color_types[color_type]
     btn = Button( button_frame, text=text, font=BUTTON_FONT, 
-                 width=3, height=1, highlightthickness=0, 
+                 width=BUTTON_WIDTH, height=BUTTON_HEIGHT, highlightthickness=0,
                  command=cmd, bg=COLORS[bg_idx], fg=COLORS[fg_idx],)
     btn.grid(column=col, row=row)
     
@@ -328,18 +335,19 @@ for text, row, col, cmd, color_type in buttons:
 #### Bind keyboard  - Button input is preferred. Only some function keys are bound to the keyboard. ####
 
 # number and operator keys bind.
-for n in "0123456789":  window.bind(n, lambda event, n = n: number_input(num=n))
+for n in "0123456789":  window.bind(n, lambda event, n = n: number_button(num=n))
 for o in "+-*/%":       window.bind(o, lambda event, o = o: operator_button(operator=o))
 
 # function keys bind.
-window.bind(".",        lambda event:   point())
-window.bind("<Return>", lambda event:   equals())     # enter
-window.bind("<Escape>", lambda event:   clear())      # esc
+window.bind(".", lambda event:   point_button())
+window.bind("<Return>", lambda event:   equals())               # enter
+window.bind("<Escape>", lambda event:   clear_button())                # esc
 window.bind("(", lambda event:   open_parentheses())
 window.bind(")", lambda event:   close_parentheses())
-window.bind("<BackSpace>",              backspace)               # backspace
+window.bind("<BackSpace>",              backspace)              # backspace
 
 # deactive display_entry focus bind.(every key event on display_entry -> set_window_focus(): window.focus_set())
 display_entry.bind("<Key>", set_window_focus)
 
+#### MAIN ####
 window.mainloop()
