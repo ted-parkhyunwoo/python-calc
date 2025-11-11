@@ -90,6 +90,7 @@ class AdjustFormula:
             self.close_unmatched_parentheses()
             self.handle_missing_formula()
             self.replace_percent_with_division()
+            self.remove_last_invalid_ops()      #테스트: 한번더 실행
             prev_formula = self.formula
         return self.formula
 

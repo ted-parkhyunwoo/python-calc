@@ -2,7 +2,8 @@ from tkinter import Tk, Frame, Label, Button, Entry
 from calc import calc
 from adjust_formula import AdjustFormula
 
-# TODO signchange 를 이전의 입력숫자만 (- 로 처리하도록 고려: (- 이런식으로 식이 작성된 경우, 연산자 변경시 (%, %* 식으로 되는것을 막을것)
+# TODO signchange 를 이전의 입력숫자만 (- 로 처리하도록 고려
+# TODO 괄호열기만 입력된 경우. 연산자 교체시 연산자만 남음
 
 #### Constants for Design (You can fix) ####
 COLORS:list         = ["#2C3333", "#395B64", "#A5C9CA", "#E7F6F2"]   #Color set from https://colorhunt.co/palette/2c3333395b64a5c9cae7f6f2
@@ -67,10 +68,10 @@ def set_window_focus(event):                # display_entry 포커스시 강제 
 
 #### Inheritance/Dependency Functions for Button Logic ####
 
-def find_last_ops_index(user_input:str) -> int:     # Used as an inheritance function : #! += 버튼에만 종속됨. 내부화 고려.
+def find_last_ops_index(user_input:str) -> int:     # Used as an inheritance function : signchange_button(+-), operator_button에 종속됨.
     last_ops_index = 0
     for i in range(len(user_input)):                #! 연산자 찾기 코드 리팩토링, 디버깅 25-04-22
-        if user_input[i] in "/-+*%()":              last_ops_index = i
+        if user_input[i] in "/-+*%":                last_ops_index = i
     return last_ops_index
 
 def update_input_ready_status(func=False) -> None:  # first_input trigger switching method. 
@@ -96,10 +97,10 @@ def adjust_precision(result: float) -> float:                   # 정밀도 보�
         result = int(round(result))                 
     return result                
                 
-def update_recent_labels(formula:str, result:float) -> None:      
+def update_recent_labels(formula:str, result:str) -> None:
     # Update recent labels and Update display_entry(except input just "=") : 25-04-21
     remove_entry()
-    insert_entry(0, str(result))
+    insert_entry(0, result)
     
     global g_last_display
     # Extract the last result from Last_Display.
@@ -112,9 +113,9 @@ def update_recent_labels(formula:str, result:float) -> None:
     last_display_result = last_display_result.replace(",", "")
     
     old_display:str = g_last_display
-    g_last_display = f"{formula}={result:,}"  #for update recent label.
+    g_last_display = f"{formula}={result}"  #for update recent label.
         
-    if len(g_last_display) >= 40: g_last_display = f"{result:,}"    # Last_Display is just result if that is longer than 40 chars
+    if len(g_last_display) >= 40: g_last_display = f"{result}"    # Last_Display is just result if that is longer than 40 chars
         
     if last_display_result != formula:
         if recent_label_1["text"] == "":
@@ -135,21 +136,60 @@ def number_button(num:str):
     update_input_ready_status()                 #Trigger make False.
     push_entry(num)
 
-def operator_button(operator):
+def operator_button(operator:str):
     content:str = get_entry()
-    if content != "" and content[-1] == "(" and operator!= "-" : return     #! DEBUG: 괄호 뒤 연산자 입력차단 (25-11-09)
-    if content != "" and content[-1] == "%" and operator == "%": return     #! DEBUG: % 연속입력 금지 (25-04-22)
-    if operator in "+*/%" and content == "":    return     # DEBUG: 비어있는상태에선 연산자로 시작할 수 없음(-제외) 25-04-21
-    if content == "-":                  # DEBUG: - 기호만 입력된 상태에서 연산자를 다시 누르는것을 허용하지 않음 25-04-22
-        if operator == "-":                     remove_entry()            # 단항 '-' 입력된 상태에서 다시 입력시 제거
-        return   
 
-    if len(content) > 0 and content[-1] in OPS:  # 연산자 연속입력시 최근입력된 연산자만 사용 기능 내부화 25-04-22
-        last_index:int = len(content) -1
-        remove_entry(last_index) 
-            
-    update_input_ready_status()
-    push_entry(operator)
+    # 테스트: 해당 if문만 정상 작동하면 아래 코드들 쓸모 없을 것으로 예상됨. (현재 비어있는 상태에서 - 입력후 연산자교체하면 입력 되버림.
+    if len(content):
+        # 초기입력 -만 입력시 다른연산자는 연속입력 무시. 다만 +은 -를 지워서 클리어함.
+        if len(content) == 1 and content == "-":
+            if operator != "+":     return              # 입력한 연산자가 + 가 아닌경우는 모두 무시
+            else:
+                remove_entry(0)                         # 여기서 지움
+                return
+
+        # 초기입력 괄호열기 ( 하나 뿐인 상태에서 연산자 입력시 연산자로 교체되어버리는 문제 해결
+        if len(content) == 1 and content == "(":
+            remove_entry(0)
+            return
+
+        # 괄호는 무시하고 마지막 입력이 숫자인지 확인하는 함수
+        def is_last_number(formula:str) -> bool:
+            if len(formula) > 0:
+                for i in range(len(formula) - 1, -1, -1):
+                    if formula[i] == "(" or formula[i] == ")":      continue            # 괄호는 무시
+                    if formula[i] in [f"{i}" for i in range(10)]:   return True         # 번호임을 감지
+                    else:                                           return False        # 번호가 아님
+            return False                                                                # 매개변수 formula 비어있음
+
+        # 마지막입력이 연산자인데 연산자를 입력받았으므로 이전 연산자 혹은 괄호를 포함한 연산자 찾아서 모두 지움
+        if not is_last_number(content):
+            last_ops_idx: int = find_last_ops_index(content)
+            remove_entry(last_ops_idx)
+        # 화면을 갱신 후 리턴
+        update_input_ready_status()
+        push_entry(operator)
+        return
+    # 초기입력 -는 허용. TODO: -( 혹은 -((( 등으로 입력시 다른연산자 입력하면 또 문제발생. 삭제고려.
+    elif not len(content) and operator == "-":
+        update_input_ready_status()
+        push_entry(operator)
+        return
+
+    ## 이전코드: 삭제 예정
+    # if content != "" and content[-1] == "(" and operator!= "-" : return     #! DEBUG: 괄호 뒤 연산자 입력차단 (25-11-09)
+    # if content != "" and content[-1] == "%" and operator == "%": return     #! DEBUG: % 연속입력 금지 (25-04-22)
+    # if operator in "+*/%" and content == "":    return     # DEBUG: 비어있는상태에선 연산자로 시작할 수 없음(-제외) 25-04-21
+    # if content == "-":                  # DEBUG: - 기호만 입력된 상태에서 연산자를 다시 누르는것을 허용하지 않음 25-04-22
+    #     if operator == "-":                     remove_entry()            # 단항 '-' 입력된 상태에서 다시 입력시 제거
+    #     return
+    #
+    # if len(content) > 0 and content[-1] in OPS:  # 연산자 연속입력시 최근입력된 연산자만 사용 기능 내부화 25-04-22
+    #     last_index:int = len(content) -1
+    #     remove_entry(last_index)
+    #
+    # update_input_ready_status()
+    # push_entry(operator)
 
 
 ## Special Action Buttons    (., C, +-, (), =) ##
@@ -175,7 +215,7 @@ def clear_button():    # 'C' Button
 
 # signchange_button() function turns the input into negative or positive based on various conditions.
 # The content isn't really important. I just kept debugging until it worked as wished.
-#! TODO: 간소화 리펙토링 필요  
+# 간소화 리펙토링 검토할 것
 def signchange_button():       # '+-' Button.
     update_input_ready_status()
     content:str = get_entry()
@@ -226,32 +266,30 @@ def parentheses_button():      # '( )' Bottn.
 
 # '=' Button
 def equals():
-    window.focus_set()    
+    window.focus_set()
     # make and init user_formula and user_formula result.    
     user_formula:str = AdjustFormula(get_entry()).get_standard_fix()        # Adjustments for various formula errors 25-04-21
+    if user_formula == "": return  # ! 수식 문자열이 비어있는 경우 아무행동도 하지 않도록 조치.
     user_formula_result:float = 0.0
-          
-    # Error handling:   #! 리팩토링: equals()에서만 다뤄지는 간단한 함수 모두 삭제 :25-04-22
-    try:    
+
+    # user_formula에 문제 발생시 예외처리
+    try:
         for c in user_formula:  # 허용되지 않은 문자입력시 (현재는 쓰일일은 없으나 유지.)
             if c not in ALLOWED_CHARS:          raise ValueError("Unauthorized input")
         if len(user_formula) > INPUT_LIMIT:     raise ValueError("Out of range") # 최대 입력문자 한계 초과
         
     except ValueError as e:
-        # print(f"ERR: err = {str(e)}, user_formula = {user_formula}, user_formula_result = {user_formula_result}")       #! TEST DEBUG CODE
-        if str(e) == "Unauthorized input": 
+        if str(e) == "Unauthorized input":
             window.after(0,     lambda: error_display(errmsg= "Unauthorized input"))
         if str(e) == "Out of range": 
             window.after(0,     lambda: error_display(errmsg= f"OUT OF RANGE({len(user_formula)}/{INPUT_LIMIT})"))
         return
     
-    # print(f"DEBUG: {user_formula}")       #! TEST DEBUG CODE
-    # calculating and fix precision with Handling unexpected errors (25-04-21)
+    # user_formula를 계산하는 과정에서 예외 처리(calc.py 클래스에서 해결 불능시)
     try:
         user_formula_result:float = adjust_precision(calc(user_formula))     # 정밀도 보정 함수 적용 (25-04-20)
-    except:
-        if user_formula == "":
-            user_formula = "EMPTY"    #! 수식 문자열이 비어있음을 경고
+    except Exception as e:
+        print(e)
         errmsg:str = f"Failed read formula: {user_formula}"
         window.after(0,         lambda: error_display(errmsg= errmsg))
         return
@@ -259,7 +297,8 @@ def equals():
     update_input_ready_status(True)             # This trigger will clear_button display if you click number after calc.
 
     # UI update recent_label 1, 2 and update display_entry
-    update_recent_labels(formula=user_formula, result= user_formula_result)     
+    result_str = f"{user_formula_result:.13f}".rstrip('0').rstrip('.')
+    update_recent_labels(formula=user_formula, result= result_str)
             
             
 #### UI OBJECTS ####
