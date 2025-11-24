@@ -2,8 +2,10 @@ from tkinter import Tk, Frame, Label, Button, Entry
 from calc import calc
 from adjust_formula import AdjustFormula
 
-# TODO signchange 를 이전의 입력숫자만 (- 로 처리하도록 고려
-# TODO 괄호열기만 입력된 경우. 연산자 교체시 연산자만 남음
+# TODO signchange 를 이전의 입력숫자만 (- 로 처리하도록 고려: 현재 로직 복잡도로 인한 다양한 문제 발생 가능. 직전입력 숫자만 (- 처리 고려
+# 발견된 사인체인지 문제: 123 * ( 이상태에서 signchange 누르면 문제발생여지 있는 수식됨. 123 * (-(
+# 위 상태에선 바로 계산해도 문제고,  연산자 변경시 123 * (/ 이런형태까지 진행되어버림.
+# 또 다른해결방법: 직전이 숫자가 아니라면 +-를 무시하도록 함.
 
 #### Constants for Design (You can fix) ####
 COLORS:list         = ["#2C3333", "#395B64", "#A5C9CA", "#E7F6F2"]   #Color set from https://colorhunt.co/palette/2c3333395b64a5c9cae7f6f2
@@ -68,11 +70,17 @@ def set_window_focus(event):                # display_entry 포커스시 강제 
 
 #### Inheritance/Dependency Functions for Button Logic ####
 
-def find_last_ops_index(user_input:str) -> int:     # Used as an inheritance function : signchange_button(+-), operator_button에 종속됨.
+def find_last_ops_index(user_input:str) -> int:     # Used as an inheritance function : signchange_button(+-), operator_button
     last_ops_index = 0
     for i in range(len(user_input)):                #! 연산자 찾기 코드 리팩토링, 디버깅 25-04-22
         if user_input[i] in "/-+*%":                last_ops_index = i
     return last_ops_index
+
+def find_last_nums_index(user_input:str) -> int:    # Used as an inheritance function : operator_button
+    last_nums_index = 0;
+    for i in range(len(user_input)):
+        if user_input[i] in "0123456789":           last_nums_index = i
+    return last_nums_index
 
 def update_input_ready_status(func=False) -> None:  # first_input trigger switching method. 
     global g_prepare_for_new_input
@@ -164,6 +172,8 @@ def operator_button(operator:str):
 
         # 마지막입력이 연산자인데 연산자를 입력받았으므로 이전 연산자 혹은 괄호를 포함한 연산자 찾아서 모두 지움
         if not is_last_number(content):
+            if not find_last_nums_index(content):       # debug: 25-11-25. 번호도 없고 연산자도 없다면 무시
+                return
             last_ops_idx: int = find_last_ops_index(content)
             remove_entry(last_ops_idx)
         # 화면을 갱신 후 리턴

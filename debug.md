@@ -7,6 +7,7 @@ TODO. UI 자체만!(기능은 main에서 구현) 모듈화 가능성 검토   : 
 TODO. 아무 행동도 하지 않고 이퀄만 누를 시 포뮬라 에러 표기되는 행동을 바꿀 것
 
 <h2>OK List</h2>
+<br>OK. 괄호열기만 입력된 경우. 연산자 교체시 연산자만 남음 -> find_last_nums_index 함수 생성하여 find_last_ops_index 둘다 0일시 무시 
 <br>OK. operator_button 이 초기입력 - 인 상태에서 연산자 변경시 비워진 상태에서도 변경 되는 것을 막음. 오직 +로 재입력시만 - 연산자 해제 가능 
 <br>OK. operator_button 연산자 변경시: 입력된 괄호랑 숫자마저 다 지워지는 문제를 숫자검사 내부함수(is_last_number(str)) 로 해결.
 <br>OK. 수식에 /( 로 끝난 경우 연산자 제거 처리하지 않는 문제를 adjust_formula.py 에서 수식 변경후 한번 더 연산자 제거로 해결
