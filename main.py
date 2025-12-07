@@ -6,6 +6,9 @@ from adjust_formula import AdjustFormula
 # 발견된 사인체인지 문제: 123 * ( 이상태에서 signchange 누르면 문제발생여지 있는 수식됨. 123 * (-(
 # 위 상태에선 바로 계산해도 문제고,  연산자 변경시 123 * (/ 이런형태까지 진행되어버림.
 # 또 다른해결방법: 직전이 숫자가 아니라면 +-를 무시하도록 함.
+# TODO = 입력시 이전의 포뮬러를 기억해서 연속계산 적용할 수 있도록.(복잡한 복합 연산은 마지막 연산만 기억하는 구조임)
+# 필요한 멤버 예상: 현재의 fomular 에서 마지막의 연산만 return하는 메서드, 이 함수로 저장한 수식을 저장할 전역변수.
+# 이퀄 입력시 현재는 아무것도 입력되지 않았고, 직전의 결과값이 있고, 직전의 마지막연산 전역변수가 있는 경우에 작동하는 조건식
 
 #### Constants for Design (You can fix) ####
 COLORS:list         = ["#2C3333", "#395B64", "#A5C9CA", "#E7F6F2"]   #Color set from https://colorhunt.co/palette/2c3333395b64a5c9cae7f6f2
